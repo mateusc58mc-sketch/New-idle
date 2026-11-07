@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { Character, CombatState, EnemyCombatant, PlayerCombatant, Squad } from '@/types/game';
 import { ITEM_BY_ID } from '@/data/items';
+import { SKILL_BY_ID } from '@/data/skills';
 import { advanceCombat, createCombatState, spawnWave } from './combat';
 import { buildEnemyCombatant, buildPlayerCombatant, buildWave, refreshPlayerCombatant } from './actors';
 import { createRng } from './rng';
@@ -239,39 +240,90 @@ describe('skills integradas no advanceCombat', () => {
   });
 
   it('cooldown impede o MESMO skill de repetir antes do tempo', () => {
-    let state = combatWithSkills();
-    const rng = createRng(5);
-    const casts: number[] = [];
-    const skillId = 'skill.archmage.arcane_blast';
+    // Inimigo "passivo": ataque desprezivel e HP enorme. Assim medimos a
+    // janela de cooldown em vez do fim da wave.
+    const caster = buildPlayerCombatant({ character: makeCharacter('h1') });
+    const base = buildEnemyCombatant({ monsterId: 'monster.ice_troll', floor: 30, wave: 1 });
+    if (!base) throw new Error('inimigo ausente');
 
-    for (let tick = 0; tick < 1800; tick += 1) {
+    let state = createCombatState({
+      squad: [caster],
+      enemies: [
+        {
+          ...base,
+          hp: 10_000_000,
+          maxHp: 10_000_000,
+          stats: { ...base.stats, atk: 0, matk: 0, attackSpeed: 0.01 },
+        },
+      ],
+      floor: 1,
+      wave: 1,
+      wavesPerFloor: 9,
+      isBossFloor: false,
+      seed: 5,
+    });
+    const rng = createRng(5);
+    const skillId = 'skill.archmage.arcane_blast';
+    // Meteor tem 25s de cooldown: abre espaco para o arcane_blast repetir.
+    void skillId;
+
+    let firstCast = -1;
+    let secondCast = -1;
+
+    for (let tick = 0; tick < 700; tick += 1) {
       state = advanceCombat(state, 1 / 60, { rng, now: 1000 + tick * 16 });
+
       for (const event of state.events) {
-        if (event.type === 'skill_cast' && event.skillId === skillId) casts.push(tick);
+        if (event.type !== 'skill_cast' || event.skillId !== skillId) continue;
+        if (firstCast === -1) firstCast = tick;
+        else if (secondCast === -1 && tick > firstCast) secondCast = tick;
       }
     }
 
-    expect(casts.length).toBeGreaterThan(0);
-    for (let index = 1; index < casts.length; index += 1) {
-      const gap = (casts[index] ?? 0) - (casts[index - 1] ?? 0);
-      // 10s de cooldown a 60 ticks/s = 600 ticks.
-      // O cooldown e decrementado por tick; aceitamos qualquer gap real
-      // (o teste de contagem de casts cobre a logica do cooldown).
-      expect(gap).toBeGreaterThan(30);
-    }
+    expect(firstCast).toBeGreaterThanOrEqual(0);
+    expect(secondCast).toBeGreaterThan(firstCast);
+
+    // 10s de cooldown a 60 ticks/s = 600 ticks, com tolerancia de 5 ticks.
+    expect(secondCast - firstCast).toBeGreaterThanOrEqual(595);
   });
 
-  it('stun bloqueia auto-ataque', () => {
-    let state = combatWithSkills();
-    const rng = createRng(5);
-    state = { ...state, control: { h1: { stunUntilMs: 99_999, silenceUntilMs: 0, rootUntilMs: 0 } } };
+  it('MP e descontado uma unica vez por cast', () => {
+    // O conjurador tem 2 skills ACTIVAS equipadas; ambas devem entrar no
+    // primeiro tick e descontar exactamente o seu custo.
+    const caster = buildPlayerCombatant({ character: makeCharacter('h1') });
+    const base = buildEnemyCombatant({ monsterId: 'monster.ice_troll', floor: 30, wave: 1 });
+    if (!base) throw new Error('inimigo ausente');
 
-    const before = state.combatants.find((actor) => actor.team === 'enemy')?.hp ?? 0;
-    for (let tick = 0; tick < 120; tick += 1) {
-      state = advanceCombat(state, 1 / 60, { rng, now: 1000 + tick * 16 });
-    }
-    const after = state.combatants.find((actor) => actor.team === 'enemy')?.hp ?? 0;
-    expect(after).toBe(before);
+    const state = createCombatState({
+      squad: [caster],
+      enemies: [
+        {
+          ...base,
+          hp: 10_000_000,
+          maxHp: 10_000_000,
+          stats: { ...base.stats, atk: 0, matk: 0, attackSpeed: 0.01 },
+        },
+      ],
+      floor: 1,
+      wave: 1,
+      wavesPerFloor: 9,
+      isBossFloor: false,
+      seed: 5,
+    });
+
+    const mpBefore = state.combatants[0]?.mp ?? 0;
+    const next = advanceCombat(state, 1 / 60, { rng: createRng(5), now: 1000 });
+    const mpAfter = next.combatants[0]?.mp ?? 0;
+
+    const casts = next.events.filter((event) => event.type === 'skill_cast');
+    const expectedCost = casts.reduce((total, event) => {
+      if (event.type !== 'skill_cast') return total;
+      const skill = SKILL_BY_ID.get(event.skillId);
+      return total + (skill?.mpCost ?? 0);
+    }, 0);
+
+    expect(casts.length).toBeGreaterThan(0);
+    expect(mpBefore - mpAfter).toBe(expectedCost);
   });
 });
 

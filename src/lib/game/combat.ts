@@ -91,8 +91,21 @@ export function spawnWave(
   },
 ): CombatState {
   const heroes = state.combatants.filter((actor) => actor.team === 'squad');
+
+  // Reset de squad entre waves: recupera HP/MP e limpa efeitos, mas PRESERVA
+  // os cooldowns de skill. Reabrir o cooldown a cada wave permitia ao squad
+  // fazer burst ilimitado no inicio de cada wave.
   const refreshedHeroes = input.resetSquad
-    ? heroes.map((actor) => ({ ...actor, hp: actor.maxHp, mp: actor.maxMp, shield: 0, isAlive: true, effects: [] }))
+    ? heroes.map((actor) => ({
+        ...actor,
+        hp: actor.maxHp,
+        mp: actor.maxMp,
+        shield: 0,
+        isAlive: true,
+        effects: [],
+        // Os cooldowns continuam a correr entre waves.
+        skillCooldowns: actor.skillCooldowns,
+      }))
     : heroes;
 
   const skillMap: Record<Uuid, readonly EquippedSkill[]> = { ...state.skills };
@@ -399,7 +412,7 @@ export function advanceCombat(state: CombatState, deltaSec: number, ctx: Advance
   }
 
   // 2. Habilidades — cooldowns, custo de MP e executor de efeitos
-  const castResult = castSkills(combatants, state, dt, ctx, events, metrics);
+  const castResult = castSkills(combatants, state, ctx, events, metrics);
   combatants = castResult.combatants;
   metrics = castResult.metrics;
   let control = castResult.control;
@@ -414,12 +427,16 @@ export function advanceCombat(state: CombatState, deltaSec: number, ctx: Advance
   const squadAlive = aliveOf(combatants, 'squad').length;
   const enemiesAlive = aliveOf(combatants, 'enemy').length;
 
+  // A resolucao olha para o NUMERO DE INIMIGOS VIVOS, nao para a fase
+  // anterior. O bug original exigia `state.phase !== 'wave_intro'`, o que
+  // deixava a luta presa quando o primeiro cast matava o unico inimigo
+  // (a wave nunca era declarada limpa e o HUD ficava em "wave_intro").
   let phase: CombatPhase = state.phase;
   if (squadAlive === 0) {
     phase = 'wipe';
-  } else if (enemiesAlive === 0 && state.phase !== 'wave_intro') {
+  } else if (enemiesAlive === 0) {
     phase = state.isBossFloor && state.wave >= state.wavesPerFloor ? 'floor_clear' : 'wave_clear';
-  } else if (enemiesAlive > 0 && state.phase === 'wave_intro') {
+  } else if (state.phase === 'wave_intro' || state.phase === 'boss_telegraph') {
     phase = state.isBossFloor && state.wave >= state.wavesPerFloor ? 'boss_fight' : 'fighting';
   }
 
@@ -475,53 +492,59 @@ interface CastOutcome {
 function castSkills(
   combatants: readonly Combatant[],
   state: CombatState,
-  dt: number,
   ctx: AdvanceContext,
   events: CombatState['events'][number][],
   metrics: CombatMetrics,
 ): CastOutcome {
-  let list: readonly Combatant[] = combatants.map((actor) => {
-    const cooldowns: Record<ContentId, number> = {};
-    for (const [skillId, remaining] of Object.entries(actor.skillCooldowns)) {
-      cooldowns[skillId] = Math.max(0, remaining - dt);
-    }
-    return { ...actor, skillCooldowns: cooldowns };
-  });
+  // Os cooldowns recebidos JA foram decrementados por `tickCooldowns` no
+  // inicio de `advanceCombat`. Decrementar outra vez dobrava a velocidade
+  // de recarga e, como este array e escrito por cima do anterior, o
+  // conjurador voltava a ler 0 no tick seguinte.
+  let list: readonly Combatant[] = combatants;
   let currentMetrics = metrics;
   let currentControl = state.control;
   let absorbed = 0;
 
   for (let casterIndex = 0; casterIndex < list.length; casterIndex += 1) {
-    const caster = list[casterIndex];
-    if (!caster || !isAlive(caster)) continue;
-    if (!canCast(state, caster.id, ctx.now)) continue;
+    const entryActor = list[casterIndex];
+    if (!entryActor || !isAlive(entryActor)) continue;
+    if (!canCast(state, entryActor.id, ctx.now)) continue;
+    const casterId = entryActor.id;
 
-    const equipped = state.skills[caster.id] ?? [];
+    const equipped = state.skills[casterId] ?? [];
     if (equipped.length === 0) continue;
 
     for (const entry of equipped) {
+      // O snapshot TEM de ser lido DEPOIS do cast anterior deste tick:
+      // cooldowns e MP mudam dentro deste mesmo loop. Ler um snapshot antigo
+      // fazia a segunda skill ignorar o cooldown recem-gravado.
+      const liveCaster = list.find((actor) => actor.id === casterId);
+      if (!liveCaster || !isAlive(liveCaster)) break;
+
       const skill = SKILL_BY_ID.get(entry.skillId);
       if (!skill || skill.kind === 'passive') continue;
 
-      const remaining = caster.skillCooldowns[skill.id] ?? 0;
+      // `tickCooldowns` grava 0 (nao remove a chave) quando a skill fica
+      // pronta. Usar `?? 0` aqui e correcto porque o valor e sempre numero.
+      const remaining = liveCaster.skillCooldowns[skill.id] ?? 0;
       if (remaining > 0) continue;
-      if (caster.mp < skill.mpCost) continue;
+      if (liveCaster.mp < skill.mpCost) continue;
 
       const applications = resolveSkillCast({
-        caster,
+        caster: liveCaster,
         skill,
         combatants: list,
         now: ctx.now,
         rng: ctx.rng,
-        buffDurationPct: caster.stats.buffDuration,
+        buffDurationPct: liveCaster.stats.buffDuration,
       });
       if (applications.length === 0) continue;
 
       events.push({
-        id: `cast:${caster.id}:${skill.id}:${ctx.now}`,
+        id: `cast:${casterId}:${skill.id}:${ctx.now}`,
         at: ctx.now,
         type: 'skill_cast',
-        sourceId: caster.id,
+        sourceId: casterId,
         skillId: skill.id,
         targetIds: applications.map((application) => application.effect.targetActorId),
         castTimeSec: skill.castTimeSec,
@@ -536,7 +559,7 @@ function castSkills(
             id: `skill-dmg:${application.effect.id}`,
             at: ctx.now,
             type: 'damage',
-            sourceId: caster.id,
+            sourceId: casterId,
             targetId: application.effect.targetActorId,
             amount: immediate.amount,
             isCrit: false,
@@ -544,26 +567,26 @@ function castSkills(
             element: skill.effects[0]?.element ?? 'neutral',
             skillId: skill.id,
           });
-          currentMetrics = recordDamage(currentMetrics, caster.id, application.effect.targetActorId, immediate.amount, false, false);
+          currentMetrics = recordDamage(currentMetrics, casterId, application.effect.targetActorId, immediate.amount, false, false);
         } else if (immediate.kind === 'heal') {
           events.push({
             id: `skill-heal:${application.effect.id}`,
             at: ctx.now,
             type: 'heal',
-            sourceId: caster.id,
+            sourceId: casterId,
             targetId: application.effect.targetActorId,
             amount: immediate.amount,
             skillId: skill.id,
             isCrit: false,
           });
-          currentMetrics = recordHealing(currentMetrics, caster.id, immediate.amount);
+          currentMetrics = recordHealing(currentMetrics, casterId, immediate.amount);
         } else {
           absorbed += immediate.amount;
           events.push({
             id: `skill-shield:${application.effect.id}`,
             at: ctx.now,
             type: 'shield',
-            sourceId: caster.id,
+            sourceId: casterId,
             targetId: application.effect.targetActorId,
             amount: immediate.amount,
             skillId: skill.id,
@@ -575,18 +598,25 @@ function castSkills(
       list = applied.combatants;
       currentControl = applied.control;
 
-      // Cooldown e MP — escrever no indice actual, senao o proximo tick
-      // volta a ler o cooldown antigo (bug de casts infinitos).
-      const latest = list[casterIndex] ?? caster;
-      list = list.map((actor, index) =>
-        index === casterIndex
+      // Cooldown e MP.
+      //
+      // BUG HISTORICO: `applyCast` recria o array de combatentes, o que
+      // invalida `casterIndex` (a posicao pode mover-se). Escrever no indice
+      // fazia com que o cooldown fosse para outro actor e o conjurador
+      // voltasse a ler 0 no tick seguinte -> cast infinito.
+      //
+      // Solucao: localizar o conjurador POR ID no array novo.
+      list = list.map((actor) =>
+        actor.id === casterId
           ? {
-              ...latest,
-              mp: Math.max(0, latest.mp - skill.mpCost),
-              skillCooldowns: { ...latest.skillCooldowns, [skill.id]: skill.cooldownSec },
+              ...actor,
+              mp: Math.max(0, actor.mp - skill.mpCost),
+              skillCooldowns: { ...actor.skillCooldowns, [skill.id]: skill.cooldownSec },
             }
           : actor,
       );
+
+
     }
   }
 

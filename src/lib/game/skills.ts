@@ -201,10 +201,14 @@ function immediateFor(
   switch (effect.function) {
     case 'damage':
     case 'aoe_damage': {
-      const capped = effect.maxHpDamageCapPct
-        ? Math.min(value, target.maxHp * effect.maxHpDamageCapPct)
-        : value;
-      return { kind: 'damage', amount: Math.round(capped) };
+      // Teto explicito do efeito (skills com `maxHpDamageCapPct`) ou o teto
+      // global de AoE da wiki (40% do MaxHP). Sem isto, uma skill de area
+      // contra um chefe mata-o num cast — o teste "uma wave completa" apanhava
+      // exactamente isso.
+      const capPct = effect.maxHpDamageCapPct ?? BALANCE.combat.aoeDamageCapPct;
+      const cap = target.maxHp * capPct;
+      const capped = Math.min(value, cap);
+      return { kind: 'damage', amount: Math.max(1, Math.round(capped)) };
     }
     case 'heal':
       return { kind: 'heal', amount: Math.round(value) };
