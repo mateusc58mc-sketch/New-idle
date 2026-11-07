@@ -143,7 +143,7 @@ export interface BuildEnemyInput {
 export function scaleMonsterStats(monster: Monster, floor: number, tier: MonsterTier): DerivedStats {
   const scaling = BALANCE.tower.enemyScaling;
   const steps = Math.max(0, floor - 1);
-  const hpFactor = Math.pow(1 + scaling.hpPerFloor, steps);
+  const hpFactor = Math.pow(1 + scaling.hpPerFloor, steps) * scaling.baseHpMultiplier;
   const atkFactor = Math.pow(1 + scaling.atkPerFloor, steps);
   const defFactor = Math.pow(1 + scaling.defPerFloor, steps);
   const bossHp = tier === 'boss' ? scaling.bossMultiplier : 1;

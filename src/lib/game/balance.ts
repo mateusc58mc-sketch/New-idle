@@ -109,12 +109,13 @@ export const BALANCE = {
     bossFloorInterval: 10,
     /** Escala de HP/ATK/DEF por andar. @tuning */
     enemyScaling: {
-      hpPerFloor: 0.18,
+      baseHpMultiplier: 2.5,
+      hpPerFloor: 0.32,
       atkPerFloor: 0.12,
-      defPerFloor: 0.08,
+      defPerFloor: 0.1,
       /** Chefe: curva exponencial sobre o mob do andar. */
-      bossMultiplier: 8,
-      bossAtkMultiplier: 2.2,
+      bossMultiplier: 12,
+      bossAtkMultiplier: 2.4,
     },
     /** Progresso offline: limite de 8 horas (regra da wiki). */
     offline: {
