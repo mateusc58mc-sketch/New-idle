@@ -1,0 +1,26 @@
+# dependências
+node_modules/
+.pnp
+.pnp.*
+
+# builds
+.next/
+out/
+build/
+dist/
+
+# ambiente — NUNCA commitar
+.env
+.env.local
+.env.*.local
+.env.example.local
+
+# caches e logs
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+.eslintcache
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

@@ -1,0 +1,170 @@
+<!doctype html>
+<html lang="pt-BR" class="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aetheria — Etapa 5 (motor real no HUD)</title>
+<style>
+  :root{
+    --void-950:#07070c; --void-900:#0b0b14; --void-800:#12121f; --void-700:#1a1a2e;
+    --arcane:#38bdf8;
+    --rarity-common:156 163 175; --rarity-uncommon:74 222 128; --rarity-rare:56 189 248;
+    --rarity-epic:167 139 250; --rarity-legendary:251 191 36; --rarity-mythic:244 114 182;
+    --dmg-normal:#fff; --dmg-crit:#fbbf24; --dmg-heal:#4ade80; --dmg-miss:#94a3b8;
+    --font: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:var(--font);font-size:14px;color:#e5e7eb;min-height:100vh;
+    background:radial-gradient(1200px 600px at 50% -10%,#1b2440 0,transparent 60%),
+      radial-gradient(800px 400px at 90% 110%,#2a1630 0,transparent 60%),var(--void-950)}
+  .wrap{max-width:1240px;margin:0 auto;padding:20px 16px 64px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:18px}
+  .brand{display:flex;align-items:center;gap:12px}
+  .sigil{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;
+    background:linear-gradient(145deg,#1e293b,#0f172a);border:1px solid #334155;box-shadow:0 0 18px rgba(56,189,248,.25)}
+  h1{font-size:17px;margin:0;letter-spacing:.4px}
+  .sub{font-size:11.5px;color:#94a3b8}
+  .pill{font-family:var(--mono);font-size:11px;padding:3px 9px;border-radius:999px;border:1px solid #334155;background:#0f172a;color:#cbd5e1}
+  .pill.boss{border-color:#7f1d1d;background:#2a0f14;color:#fca5a5}
+  .pill.wipe{border-color:#7c2d12;background:#1c1007;color:#fdba74}
+  .panel{background:linear-gradient(180deg,rgba(18,18,31,.95),rgba(11,11,20,.95));border:1px solid #232342;
+    border-radius:14px;overflow:hidden;box-shadow:0 18px 40px -24px #000;margin-bottom:16px}
+  .panel-h{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;
+    border-bottom:1px solid #232342;background:rgba(26,26,46,.55)}
+  .panel-h h2{font-size:12px;margin:0;letter-spacing:1.2px;text-transform:uppercase;color:#9ca3af}
+  .panel-b{padding:14px}
+  .floorbar{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid #232342;background:linear-gradient(90deg,#0f172a,#0b0b14)}
+  .floorbar .big{font-size:22px;font-weight:700;font-family:var(--mono)}
+  .floorbar .nm{font-size:12px;color:#94a3b8}
+  .prog{flex:1;height:7px;border-radius:99px;background:#1e293b;overflow:hidden;min-width:120px}
+  .prog>i{display:block;height:100%;background:linear-gradient(90deg,#0ea5e9,#7dd3fc);transition:width .2s}
+  .hudrow{display:flex;gap:8px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid #232342;background:#0a0f1c}
+  .stat{font-family:var(--mono);font-size:11px;color:#94a3b8;padding:3px 8px;border-radius:7px;background:#0f172a;border:1px solid #1e293b}
+  .stat b{color:#e2e8f0}
+  .arena{position:relative;display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:14px;min-height:320px;
+    background:linear-gradient(180deg,rgba(7,7,12,.1),rgba(7,7,12,.9)),radial-gradient(circle at 30% 25%,#1e3a5f55,transparent 60%);
+    overflow:hidden}
+  .lane-h{font-size:10px;letter-spacing:1.4px;text-transform:uppercase;color:#64748b;text-align:center;margin-bottom:6px}
+  .unit{position:relative;padding:7px;border-radius:10px;margin-bottom:7px;
+    background:rgba(15,23,42,.72);border:1px solid #1f2a44;transition:opacity .2s,filter .2s}
+  .unit.foe{background:rgba(40,14,22,.6);border-color:#3f1d2b}
+  .unit.foe.boss{background:rgba(60,10,16,.75);border-color:#7f1d1d}
+  .unit.dead{opacity:.3;filter:grayscale(1)}
+  .unit .top{display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px;gap:6px}
+  .unit .top small{font-family:var(--mono);color:#64748b;font-size:9.5px}
+  .bar{height:5px;border-radius:99px;background:#1e293b;overflow:hidden;margin-top:3px}
+  .bar>i{display:block;height:100%;transition:width .14s linear}
+  .bar.hp>i{background:linear-gradient(90deg,#16a34a,#4ade80)}
+  .bar.mp>i{background:linear-gradient(90deg,#1d4ed8,#60a5fa)}
+  .bar.sh>i{background:linear-gradient(90deg,#0369a1,#7dd3fc)}
+  .bar.boss>i{background:linear-gradient(90deg,#7f1d1d,#ef4444,#fca5a5)}
+  .fxrow{display:flex;gap:3px;margin-top:4px;flex-wrap:wrap}
+  .fx{font-family:var(--mono);font-size:8.5px;padding:1px 4px;border-radius:4px;background:#111827;border:1px solid #1e293b}
+  .float{position:absolute;pointer-events:none;font-family:var(--mono);font-weight:700;
+    text-shadow:0 1px 3px #000,0 0 4px rgba(0,0,0,.6);white-space:nowrap;z-index:20;
+    animation:aetheria-float 850ms cubic-bezier(.16,.84,.44,1) forwards}
+  .float.crit{font-weight:800;text-shadow:0 0 8px rgba(251,191,36,.9),0 1px 3px #000}
+  @keyframes aetheria-float{
+    0%{opacity:0;transform:translate(-50%,-40%) scale(.7)}
+    18%{opacity:1;transform:translate(-50%,-58%) scale(1.08)}
+    100%{opacity:0;transform:translate(-50%,-120%) scale(.94)}}
+  @keyframes wave-flash{0%{opacity:0}30%{opacity:.85}100%{opacity:0}}
+  @keyframes floor-rise{
+    0%{opacity:0;transform:translateY(18px) scale(.96)}
+    20%{opacity:1;transform:translateY(0) scale(1)}
+    80%{opacity:1;transform:translateY(0) scale(1)}
+    100%{opacity:0;transform:translateY(-14px) scale(1.02)}}
+  .transition{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;z-index:30;
+    background:linear-gradient(90deg,transparent,rgba(56,189,248,.14),transparent);animation:wave-flash 1.4s ease-out forwards}
+  .transition span{font-family:var(--mono);letter-spacing:4px;text-shadow:0 0 18px currentColor;
+    animation:floor-rise 1.4s ease-out forwards}
+  .controls{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #232342;background:#0a0f1c;flex-wrap:wrap}
+  .btn{font-family:var(--font);font-size:12px;padding:7px 12px;border-radius:9px;border:1px solid #334155;
+    background:#111827;color:#e2e8f0;cursor:pointer;transition:.15s}
+  .btn:hover{border-color:var(--arcane);box-shadow:0 0 12px -2px rgba(56,189,248,.5)}
+  .btn.primary{background:linear-gradient(180deg,#0ea5e9,#0369a1);border-color:#0284c7;color:#fff}
+  .btn.boss{background:linear-gradient(180deg,#dc2626,#7f1d1d);border-color:#b91c1c;color:#fff}
+  .cols2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:980px){.cols2{grid-template-columns:1fr}}
+  .log{font-family:var(--mono);font-size:10.5px;color:#94a3b8;padding:10px 14px;max-height:250px;overflow:auto;line-height:1.75}
+  .log div{border-bottom:1px dashed #141c2e;padding:1px 0}
+  .log .t{color:#475569}
+  .log b{color:#7dd3fc}
+  .loot{display:flex;flex-direction:column;gap:6px;padding:14px;max-height:250px;overflow:auto}
+  .item{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:#0f172a;border:1px solid #1e293b}
+  .item .ic{width:26px;height:26px;border-radius:6px;display:grid;place-items:center;font-size:13px;background:#111827}
+  .item .nm{font-size:11.5px}
+  .item .mt{font-family:var(--mono);font-size:9px;color:#64748b}
+  .foot{color:#475569;font-size:11px;text-align:center;margin-top:18px;line-height:1.7}
+  .foot code{font-family:var(--mono);color:#64748b}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">
+      <div class="sigil">⚡</div>
+      <div>
+        <h1>AETHERIA · Etapa 5 — motor real no HUD</h1>
+        <div class="sub">skills + drops + torre integrados · floating combat text · transições de wave e andar</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <span class="pill" id="p-floor">andar 1</span>
+      <span class="pill" id="p-wave">wave 1/9</span>
+      <span class="pill" id="p-phase">idle</span>
+      <span class="pill" id="p-gold">0 gold</span>
+    </div>
+  </header>
+
+  <section class="panel">
+    <div class="panel-h">
+      <h2>Arena</h2>
+      <span class="pill" id="p-checkpoint">checkpoint 1</span>
+    </div>
+    <div class="floorbar">
+      <span class="big" id="f-num">1</span>
+      <div>
+        <div class="nm" id="f-name">Planície 1</div>
+        <div class="nm" id="f-biome" style="font-size:10px"></div>
+      </div>
+      <div class="prog"><i id="f-prog" style="width:0%"></i></div>
+      <span class="pill" id="f-wave">1 / 9</span>
+    </div>
+    <div class="hudrow" id="hud"></div>
+    <div class="arena" id="arena">
+      <div id="lane-front"><div class="lane-h">⚔️ Front</div></div>
+      <div id="lane-mid"><div class="lane-h">🛡️ Mid</div></div>
+      <div id="lane-back"><div class="lane-h">✨ Back</div></div>
+    </div>
+    <div class="controls">
+      <button class="btn primary" id="btn-auto">▶ Auto-batalha</button>
+      <button class="btn" id="btn-speed">⏩ Velocidade 1×</button>
+      <button class="btn boss" id="btn-boss" style="display:none">☠ Desafiar chefe</button>
+      <button class="btn" id="btn-wipe">💀 Simular wipe</button>
+      <button class="btn" id="btn-farm">🌾 Modo farm</button>
+      <button class="btn" id="btn-reset">↻ Reiniciar</button>
+    </div>
+  </section>
+
+  <div class="cols2">
+    <section class="panel">
+      <div class="panel-h"><h2>Loot real (drops.ts)</h2><span class="pill" id="p-loot">0</span></div>
+      <div class="loot" id="loot"><div class="mt" style="color:#475569">Limpa waves para gerar loot.</div></div>
+    </section>
+    <section class="panel">
+      <div class="panel-h"><h2>Registo de eventos</h2><span class="pill" id="p-log">0</span></div>
+      <div class="log" id="log"></div>
+    </section>
+  </div>
+
+  <div class="foot">
+    Motor real: <code>advanceCombat</code> → <code>castSkills</code> → <code>resolveSkillCast</code> → <code>tickEffects</code>.<br>
+    HUD alimentado por <code>CombatState.combatants</code> (stats de raça + atributos + equipamento) e <code>CombatState.metrics</code>.<br>
+    Este sandbox é um espelho estático; o componente real é <code>components/combat/ArenaView.tsx</code>.
+  </div>
+</div>
+<script src="etapa5-demo.js"></script>
+</body>
+</html>

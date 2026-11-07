@@ -1,0 +1,28 @@
+/**
+ * Tokens de raridade consumidos pelo Tailwind e pelo Paperdoll.
+ * Formato `R G B` para permitir `<alpha-value>` no Tailwind.
+ */
+:root {
+  --rarity-common: 156 163 175; /* slate-400 */
+  --rarity-uncommon: 74 222 128; /* green-400 */
+  --rarity-rare: 56 189 248; /* sky-400 */
+  --rarity-epic: 167 139 250; /* violet-400 */
+  --rarity-legendary: 251 191 36; /* amber-400 */
+  --rarity-mythic: 244 114 182; /* pink-400 */
+
+  /* Feedback de combate */
+  --dmg-normal: 255 255 255;
+  --dmg-crit: 251 191 36;
+  --dmg-heal: 74 222 128;
+  --dmg-miss: 148 163 184;
+
+  /* Elementos (afinidade Fogo 150% em Terra, 50% em Água, etc.) */
+  --element-fire: 249 115 22;
+  --element-water: 56 189 248;
+  --element-earth: 161 98 7;
+  --element-wind: 52 211 153;
+  --element-holy: 253 224 71;
+  --element-dark: 139 92 246;
+  --element-poison: 132 204 22;
+  --element-neutral: 203 213 225;
+}
