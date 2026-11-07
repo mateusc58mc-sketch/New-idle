@@ -97,6 +97,21 @@ describe('rollDrops', () => {
     );
     expect(result.firstClearDrop).toBe(true);
     expect(result.items.length).toBeGreaterThan(0);
+    expect(result.items[0]?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i);
+
+    const replay = rollDrops(
+      {
+        tableId: 'drops.rock_rex',
+        floor: 10,
+        isBoss: true,
+        firstClear: true,
+        squadStats,
+        ownerId: 'p1',
+        nowIso: '2026-01-01T00:00:00.000Z',
+      },
+      createRng(1),
+    );
+    expect(replay.items[0]?.id).toBe(result.items[0]?.id);
   });
 
   it('chefe dropa gold sempre', () => {

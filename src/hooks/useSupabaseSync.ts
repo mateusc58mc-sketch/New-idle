@@ -140,11 +140,13 @@ function readLocalPlayerState(userId: string | null): LocalPlayerState | null {
   }
 }
 
-function writeLocalPlayerState(userId: string | null, value: LocalPlayerState): void {
+function writeLocalPlayerState(userId: string | null, value: LocalPlayerState): boolean {
   try {
     window.localStorage.setItem(storageKey(userId), JSON.stringify(value));
+    return true;
   } catch {
     // A quota or browser privacy error must not break the combat loop.
+    return false;
   }
 }
 
@@ -353,7 +355,10 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
       currentFloor: progress.current_floor,
       currentWave: progress.current_wave,
     });
-    const incomingRows = rowsForInventory(inventory, userId);
+    const incomingRows = mergeInventory(
+      playerStateRef.current.inventory,
+      rowsForInventory(inventory, userId),
+    );
     const timestamp = new Date().toISOString();
     const nextProfile: ProfileRow | null = userId
       ? {
@@ -366,7 +371,7 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
       : null;
 
     const stored = readLocalPlayerState(userId);
-    writeLocalPlayerState(userId, {
+    const localSaved = writeLocalPlayerState(userId, {
       profile: nextProfile ?? stored?.profile ?? playerStateRef.current.profile,
       squadCharacters: playerStateRef.current.squadCharacters,
       inventory: mergeInventory(stored?.inventory ?? playerStateRef.current.inventory, incomingRows),
@@ -374,7 +379,8 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
     });
 
     if (!client || !userId) {
-      setSource(stored || incomingRows.length > 0 ? 'local' : 'empty');
+      setSource(localSaved ? 'local' : 'empty');
+      setError(localSaved ? null : 'O armazenamento local não está disponível neste navegador.');
       return;
     }
 

@@ -26,6 +26,7 @@ import {
   createTowerState,
   floorDefinition,
   isBossWave,
+  wavesForFloor,
   waveSeed,
   type TowerState,
 } from '@/lib/game/tower';
@@ -45,6 +46,8 @@ export interface UseCombatOptions {
   readonly squad: Squad;
   /** Andar inicial (progresso carregado do servidor). */
   readonly initialFloor?: number;
+  /** Wave inicial (progresso carregado do servidor). */
+  readonly initialWave?: number;
   readonly checkpointFloor?: number;
   readonly seed?: number;
   /** Modo da torre (farm repete o andar). */
@@ -78,7 +81,15 @@ export interface UseCombatResult {
 const EMPTY_REWARD: WaveReward = { gold: 0, exp: 0, items: [], firstClearDrop: false };
 
 export function useCombat(options: UseCombatOptions): UseCombatResult {
-  const { squad, initialFloor = 1, checkpointFloor = 1, seed = 1, mode = 'advance', dropBonus = 0 } = options;
+  const {
+    squad,
+    initialFloor = 1,
+    initialWave = 1,
+    checkpointFloor = 1,
+    seed = 1,
+    mode = 'advance',
+    dropBonus = 0,
+  } = options;
   const { onReward, onWipe } = options;
 
   const rngRef = useRef<Rng>(createRng(seed));
@@ -87,9 +98,11 @@ export function useCombat(options: UseCombatOptions): UseCombatResult {
   const rewardRef = useRef<WaveReward>(EMPTY_REWARD);
   const lootRef = useRef<InventoryItem[]>([]);
 
-  const towerRef = useRef<TowerState>(
-    createTowerState({ floor: initialFloor, checkpointFloor, mode }),
-  );
+  const initialTower = createTowerState({ floor: initialFloor, checkpointFloor, mode });
+  const towerRef = useRef<TowerState>({
+    ...initialTower,
+    wave: Math.max(1, Math.min(wavesForFloor(initialTower.floor), Math.floor(initialWave))),
+  });
 
   const stateRef = useRef<CombatState>(initialiseCombat(squad, towerRef.current, seed));
 

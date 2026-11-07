@@ -273,7 +273,7 @@ function buildInstance(entry: DropEntry, context: DropContext, rng: Rng): Invent
   const sockets = Array.from({ length: socketCount }, () => null);
 
   return {
-    id: `item-${context.floor}-${rng.int(0, 0xffffffff).toString(16)}` as Uuid,
+    id: deterministicUuid(rng),
     itemId: item.id,
     ownerId: context.ownerId,
     rarity,
@@ -287,6 +287,13 @@ function buildInstance(entry: DropEntry, context: DropContext, rng: Rng): Invent
     obtainedAt: context.nowIso,
     droppedAtFloor: context.floor,
   };
+}
+
+/** Generates a valid RFC 4122 UUID using only the deterministic game RNG. */
+function deterministicUuid(rng: Rng): Uuid {
+  const hex = Array.from({ length: 4 }, () => rng.int(0, 0xffffffff).toString(16).padStart(8, '0')).join('');
+  const variant = ((Number.parseInt(hex[16] ?? '8', 16) & 0x3) | 0x8).toString(16);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${variant}${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
 /** Sobe uma raridade `steps` níveis (chefes dropam melhor). */

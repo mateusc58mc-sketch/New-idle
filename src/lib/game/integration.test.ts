@@ -265,7 +265,7 @@ describe('skills integradas no advanceCombat', () => {
     const rng = createRng(5);
     const skillId = 'skill.archmage.arcane_blast';
     // Meteor tem 25s de cooldown: abre espaco para o arcane_blast repetir.
-    void skillId;
+    const seenCastEvents = new Set<string>();
 
     let firstCast = -1;
     let secondCast = -1;
@@ -274,7 +274,8 @@ describe('skills integradas no advanceCombat', () => {
       state = advanceCombat(state, 1 / 60, { rng, now: 1000 + tick * 16 });
 
       for (const event of state.events) {
-        if (event.type !== 'skill_cast' || event.skillId !== skillId) continue;
+        if (event.type !== 'skill_cast' || event.skillId !== skillId || seenCastEvents.has(event.id)) continue;
+        seenCastEvents.add(event.id);
         if (firstCast === -1) firstCast = tick;
         else if (secondCast === -1 && tick > firstCast) secondCast = tick;
       }

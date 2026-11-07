@@ -122,6 +122,24 @@ export default function HomePage() {
           </div>
         </header>
 
+        <a
+          href="/game"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            marginTop: 18,
+            padding: '9px 14px',
+            border: '1px solid #0ea5e9',
+            borderRadius: 9,
+            color: '#bae6fd',
+            fontSize: 12,
+            textDecoration: 'none',
+            background: 'rgba(14,165,233,0.12)',
+          }}
+        >
+          Abrir arena
+        </a>
+
         <section
           style={{
             marginTop: 24,
