@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { ArenaView } from '@/components/combat/ArenaView';
+import { MarketplaceModal } from '@/components/marketplace/MarketplaceModal';
 import { BASE_CLASSES } from '@/data/classes';
 import { RACE_BY_ID } from '@/data/races';
 import { useCombat } from '@/hooks/useCombat';
@@ -115,6 +116,10 @@ export function GameArena() {
     [sync.userId, sync.squadCharacters],
   );
   const onProgressChange = useCallback((next: ProgressSnapshot): void => setSnapshot(next), []);
+  const onMarketplacePurchase = useCallback(async (gold: number): Promise<void> => {
+    setSnapshot((current) => ({ ...current, gold }));
+    await sync.reload();
+  }, [sync.reload]);
 
   if (sync.loading || hydratedUserId !== sync.userId) {
     return <p style={noticeStyle}>Carregando o progresso do jogador…</p>;
@@ -132,6 +137,8 @@ export function GameArena() {
       saving={sync.saving}
       error={sync.error}
       onProgressChange={onProgressChange}
+      onMarketplacePurchase={onMarketplacePurchase}
+      userId={sync.userId}
     />
   );
 }
@@ -146,6 +153,8 @@ interface GameCombatSessionProps {
   readonly saving: boolean;
   readonly error: string | null;
   readonly onProgressChange: (snapshot: ProgressSnapshot) => void;
+  readonly onMarketplacePurchase: (gold: number) => Promise<void>;
+  readonly userId: string | null;
 }
 
 function GameCombatSession({
@@ -158,7 +167,11 @@ function GameCombatSession({
   saving,
   error,
   onProgressChange,
+  onMarketplacePurchase,
+  userId,
 }: GameCombatSessionProps) {
+  const [marketplaceOpen, setMarketplaceOpen] = useState(false);
+  const closeMarketplace = useCallback((): void => setMarketplaceOpen(false), []);
   const combat = useCombat({ squad, initialFloor, initialWave, checkpointFloor: initialFloor });
   const floor = floorDefinition(combat.tower.floor);
   const bossWave = isBossWave(combat.tower);
@@ -195,6 +208,9 @@ function GameCombatSession({
       </header>
 
       <div style={controlsStyle}>
+        <button style={marketButtonStyle} onClick={() => setMarketplaceOpen(true)} type="button">
+          Mercado
+        </button>
         <button style={buttonStyle} type="button" onClick={combat.toggle}>
           {combat.running ? 'Pausar combate' : 'Retomar combate'}
         </button>
@@ -220,6 +236,15 @@ function GameCombatSession({
         isBossFloor={combat.tower.isBossFloor}
         onDrainEvents={combat.drainEvents}
       />
+      {marketplaceOpen ? (
+        <MarketplaceModal
+          gold={Math.max(0, initialGold + combat.rewards.gold)}
+          inventory={persistedInventory}
+          onClose={closeMarketplace}
+          onPurchased={onMarketplacePurchase}
+          userId={userId}
+        />
+      ) : null}
     </section>
   );
 }
@@ -324,4 +349,5 @@ const headerStyle = {
 
 const controlsStyle = { display: 'flex', gap: 8, flexWrap: 'wrap' as const, marginBottom: 12 };
 const buttonStyle = { border: '1px solid #475569', borderRadius: 8, background: '#1e293b', color: '#e2e8f0', padding: '8px 12px', cursor: 'pointer' };
+const marketButtonStyle = { ...buttonStyle, borderColor: '#7c3aed', background: '#4c1d95', color: '#f3e8ff' };
 const noticeStyle = { maxWidth: 1040, margin: '32px auto', color: '#cbd5e1', textAlign: 'center' as const };

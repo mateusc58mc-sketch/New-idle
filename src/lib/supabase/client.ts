@@ -17,6 +17,11 @@ type Table<Row, Insert, Update> = {
   Relationships: [];
 };
 
+type View<Row> = {
+  Row: Row;
+  Relationships: [];
+};
+
 export interface Database {
   public: {
     Tables: {
@@ -116,9 +121,55 @@ export interface Database {
           updated_at?: string;
         }
       >;
+      marketplace_listings: Table<
+        {
+          id: string;
+          seller_id: string;
+          item_id: string;
+          price_gold: number;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        },
+        {
+          id?: string;
+          seller_id: string;
+          item_id: string;
+          price_gold: number;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        },
+        {
+          id?: string;
+          seller_id?: string;
+          item_id?: string;
+          price_gold?: number;
+          status?: string;
+          created_at?: string;
+          updated_at?: string;
+        }
+      >;
     };
-    Views: Record<never, never>;
-    Functions: Record<never, never>;
+    Views: {
+      marketplace_listing_details: View<{
+        id: string;
+        seller_id: string;
+        item_id: string;
+        price_gold: number;
+        status: string;
+        created_at: string;
+        catalog_item_id: string;
+        rarity: string;
+        enhancement_level: number;
+      }>;
+    };
+    Functions: {
+      buy_marketplace_item: {
+        Args: { listing_id: string; buyer_id: string };
+        Returns: boolean;
+      };
+    };
     Enums: Record<never, never>;
     CompositeTypes: Record<never, never>;
   };

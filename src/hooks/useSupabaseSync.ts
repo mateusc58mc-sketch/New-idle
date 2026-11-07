@@ -237,11 +237,11 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
   playerStateRef.current = playerState;
 
   const loadForUser = useCallback(
-    async (nextUserId: string | null): Promise<void> => {
+    async (nextUserId: string | null, showLoading = true): Promise<void> => {
       const sequence = ++loadSequence.current;
       skipInitialSave.current = true;
       setUserId(nextUserId);
-      setLoading(true);
+      if (showLoading) setLoading(true);
       setError(null);
 
       if (!client || !nextUserId) {
@@ -442,16 +442,16 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
 
   const reload = useCallback(async (): Promise<void> => {
     if (!client) {
-      await loadForUser(null);
+      await loadForUser(null, false);
       return;
     }
     const { data, error: sessionError } = await client.auth.getSession();
     if (sessionError) {
       setError(sessionError.message);
-      await loadForUser(null);
+      await loadForUser(null, false);
       return;
     }
-    await loadForUser(data.session?.user.id ?? null);
+    await loadForUser(data.session?.user.id ?? null, false);
   }, [client, loadForUser]);
 
   return {
