@@ -6,8 +6,8 @@
  * etapas já entregues, que estão em `/docs/*.html`.
  *
  * Quando o shell autenticado de `(game)/tower` estiver completo, esta página
- * passa a redireccionar para ele. Por agora é um índice honesto: mostra o que
- * funciona e o que falta.
+ * passa a redireccionar para ele. Por agora é o índice oficial do estado do
+ * MVP do Ascent Gate Idle: todas as etapas entregues e validadas.
  */
 import type { Metadata } from 'next';
 
@@ -56,16 +56,30 @@ const STAGES: readonly Stage[] = [
   {
     step: '05',
     title: 'Integração no HUD',
-    detail: 'Motor real no ArenaView, floating combat text, transições de wave e andar.',
-    status: 'partial',
+    detail: 'Motor real no ArenaView, floating combat text, transições de wave e andar, barras de HP/MP e medidor de turno.',
+    status: 'done',
     href: '/etapa5.html',
   },
   {
     step: '06',
-    title: 'Supabase',
-    detail: 'Migrations, RLS, persistência de progresso e mercado.',
-    status: 'pending',
+    title: 'Supabase & Persistência',
+    detail: 'Migrations, RLS por proprietário, sync de progresso e equipamento via useSupabaseSync.',
+    status: 'done',
     href: null,
+  },
+  {
+    step: '07',
+    title: 'Sistema de Mercado RMT',
+    detail: 'Marketplace entre jogadores, listings, inventário e compra atómica via RPC buy_marketplace_item.',
+    status: 'done',
+    href: null,
+  },
+  {
+    step: '08',
+    title: 'Camada Visual 2D',
+    detail: 'Paperdoll modular em camadas, glow de raridade (Comum → Mítico) e correção definitiva do targeting da Back Line.',
+    status: 'done',
+    href: '/paperdoll.html',
   },
 ] as const;
 
@@ -151,22 +165,27 @@ export default function HomePage() {
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>
-            <span>Progresso do MVP</span>
-            <span style={{ fontFamily: 'ui-monospace, monospace', color: '#e2e8f0' }}>{progress}%</span>
+            <span>Progresso do MVP · Ascent Gate Idle</span>
+            <span style={{ fontFamily: 'ui-monospace, monospace', color: progress >= 100 ? '#4ade80' : '#e2e8f0' }}>{progress}%</span>
           </div>
           <div style={{ height: 8, borderRadius: 99, background: '#1e293b', overflow: 'hidden' }}>
             <div
               style={{
                 height: '100%',
                 width: `${progress}%`,
-                background: 'linear-gradient(90deg, #0ea5e9, #7dd3fc)',
+                background:
+                  progress >= 100
+                    ? 'linear-gradient(90deg, #15803d, #4ade80, #bbf7d0)'
+                    : 'linear-gradient(90deg, #0ea5e9, #7dd3fc)',
+                boxShadow: progress >= 100 ? '0 0 12px rgba(74,222,128,.55)' : undefined,
                 transition: 'width 300ms',
               }}
             />
           </div>
           <p style={{ margin: '12px 0 0', fontSize: 11.5, color: '#64748b', lineHeight: 1.7 }}>
-            Etapas 1 a 4 fechadas e validadas. Etapa 5 integrada no HUD com 179 de 180 testes a passar —
-            resta um teste de cooldown de skill em investigação. Etapa 6 (Supabase) por iniciar.
+            Etapas 1 a 8 do <strong style={{ color: '#94a3b8' }}>Ascent Gate Idle</strong> concluídas e validadas —
+            181 de 181 testes verdes. O MVP reúne arena de combate real, persistência Supabase com RLS, mercado RMT com
+            compra atómica por RPC e Paperdoll modular com glow de raridade.
           </p>
         </section>
 
