@@ -16,6 +16,12 @@
  *  · acessibilidade e selecção de texto funcionam;
  *  · sprite-sheet de 1 frame por vez com `background-position` é trivial.
  * Se um dia forem 20+ avatares, `mode="canvas"` fica preparado para migrar.
+ *
+ * Fallback (Stage 8.3): a arte em `public/assets/paperdoll/**` ainda não
+ * existe. Em vez de um rectângulo cinzento, o avatar mostra SEMPRE um underlay
+ * com a paleta da raça e o glifo da classe — assim o slot tem identidade visual
+ * mesmo antes de os PNGs chegarem, e os PNGs simplesmente o cobrem quando
+ * existirem.
  */
 import { useMemo, useState } from 'react';
 
@@ -36,6 +42,11 @@ export interface PaperdollAvatarProps {
   /** Nome acessível; sem ele o avatar é decorativo. */
   readonly label?: string;
   readonly className?: string;
+  /**
+   * Glifo de fallback (ex.: ícone da classe). Sem ele usa-se a inicial da
+   * raça. Nunca é mostrado por cima da arte resolvida.
+   */
+  readonly fallbackGlyph?: string | undefined;
 }
 
 const SIZE_PX: Readonly<Record<PaperdollSize, number>> = {
@@ -55,6 +66,9 @@ const LAYER_Z_INDEX: Readonly<Record<PaperdollLayerKey, number>> = {
   vfx: 70,
 };
 
+const FALLBACK_ACCENT = '#94a3b8';
+const FALLBACK_PRIMARY = '#334155';
+
 export function PaperdollAvatar({
   state,
   size = 'md',
@@ -62,9 +76,14 @@ export function PaperdollAvatar({
   showFrame = true,
   label,
   className,
+  fallbackGlyph,
 }: PaperdollAvatarProps) {
   const px = SIZE_PX[size];
   const race = RACE_BY_ID.get(state.raceId);
+
+  const accent = race?.palette.accent ?? FALLBACK_ACCENT;
+  const primary = race?.palette.primary ?? FALLBACK_PRIMARY;
+  const glyph = fallbackGlyph ?? race?.name.slice(0, 1) ?? '?';
 
   // Camadas já vêm ordenadas de `resolvePaperdoll`; não reordenar aqui.
   const layers = state.layers;
@@ -99,31 +118,54 @@ export function PaperdollAvatar({
       aria-hidden={label ? undefined : true}
       data-animation={state.animation}
     >
-      {layers.length === 0 ? (
-        // Placeholder: nunca deixar um buraco negro no HUD.
-        <div
-          style={{
-            position: 'absolute',
-            inset: 0,
-            display: 'grid',
-            placeItems: 'center',
-            fontSize: Math.round(px * 0.4),
-            opacity: 0.4,
-          }}
-        >
-          {race ? race.palette.accent : '?'}
-        </div>
-      ) : (
-        layers.map((layer, index) => (
-          <LayerImage
-            key={`${layer.key}-${layer.slot ?? 'base'}-${index}`}
-            layer={layer}
-            canvasWidth={state.canvas.width}
-            canvasHeight={state.canvas.height}
-            fallbackColor={race?.palette.accent ?? '#64748b'}
-          />
-        ))
-      )}
+      {/* Underlay de identidade — atrás de todas as camadas. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: `radial-gradient(circle at 50% 34%, ${primary}66 0%, ${primary}22 46%, transparent 74%)`,
+        }}
+      />
+
+      {/* Anel interno suave: dá profundidade ao slot sem competir com a arte. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: '16%',
+          borderRadius: '50%',
+          border: `1px solid ${accent}2e`,
+          background: `radial-gradient(circle at 50% 30%, ${accent}24 0%, transparent 70%)`,
+        }}
+      />
+
+      {/* Glifo da classe/raça — fallback legível quando os PNGs faltam. */}
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'grid',
+          placeItems: 'center',
+          fontSize: Math.round(px * 0.42),
+          lineHeight: 1,
+          color: accent,
+          textShadow: `0 0 10px ${accent}, 0 1px 2px rgba(0,0,0,.65)`,
+          userSelect: 'none',
+        }}
+      >
+        {glyph}
+      </div>
+
+      {layers.map((layer, index) => (
+        <LayerImage
+          key={`${layer.key}-${layer.slot ?? 'base'}-${index}`}
+          layer={layer}
+          canvasWidth={state.canvas.width}
+          canvasHeight={state.canvas.height}
+        />
+      ))}
     </div>
   );
 }
@@ -132,33 +174,19 @@ function LayerImage({
   layer,
   canvasWidth,
   canvasHeight,
-  fallbackColor,
 }: {
   readonly layer: ResolvedLayer;
   readonly canvasWidth: number;
   readonly canvasHeight: number;
-  readonly fallbackColor: string;
 }) {
   const [failed, setFailed] = useState(false);
   const zIndex = LAYER_Z_INDEX[layer.key] + (layer.zOffset < 0 ? -5 : 0);
   const style = { ...layerStyle(layer, canvasWidth, canvasHeight), zIndex };
   const sheet = layer.asset.sheet;
 
-  if (failed) {
-    if (layer.key !== 'body') return null;
-    return (
-      <div
-        aria-hidden
-        style={{
-          ...style,
-          aspectRatio: `${canvasWidth} / ${canvasHeight}`,
-          borderRadius: '46% 46% 38% 38%',
-          background: `radial-gradient(ellipse at 50% 38%, ${fallbackColor} 0%, transparent 68%)`,
-          opacity: 0.35,
-        }}
-      />
-    );
-  }
+  // Sem arte, o underlay do avatar assume o papel — não desenhar um placeholder
+  // cinzento por cima dele.
+  if (failed) return null;
 
   if (sheet) {
     // Sprite-sheet: mostra o primeiro frame via background-position.

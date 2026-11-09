@@ -18,6 +18,7 @@ import { FloatingCombatText, FLOATING_TEXT_KEYFRAMES } from '@/components/combat
 import { PaperdollAvatar } from '@/components/paperdoll/PaperdollAvatar';
 import { useFloatingText } from '@/hooks/useFloatingText';
 import { highestRarity, resolvePaperdoll } from '@/lib/game/paperdoll';
+import { frontmostLine } from '@/lib/game/target';
 import { BASE_CLASSES } from '@/data/classes';
 import { RACE_BY_ID } from '@/data/races';
 import { ITEM_BY_ID } from '@/data/items';
@@ -130,6 +131,20 @@ export function ArenaView({
     return byLane;
   }, [heroes]);
 
+  // Inimigos ficam na própria linha (front/mid/back) — antes caíam todos na
+  // coluna da frente, o que escondia a formação real e confundia o "ALVO".
+  const enemyLanes = useMemo(() => {
+    const byLane: Record<'front' | 'mid' | 'back', EnemyCombatant[]> = { front: [], mid: [], back: [] };
+    for (const enemy of enemies) byLane[enemy.position].push(enemy);
+    return byLane;
+  }, [enemies]);
+
+  // Linha que os inimigos estão a atacar: a mais à frente com heróis vivos.
+  const focusedLine = useMemo(() => {
+    if (!enemies.some((enemy) => enemy.hp > 0)) return null;
+    return frontmostLine(heroes.filter((hero) => hero.hp > 0));
+  }, [heroes, enemies]);
+
   const transitionVisible = transition !== null && Date.now() - transition.at < 1400;
 
   return (
@@ -177,32 +192,68 @@ export function ArenaView({
           </div>
         )}
 
-        {(['front', 'mid', 'back'] as const).map((lane) => (
-          <div key={lane}>
+        {(['front', 'mid', 'back'] as const).map((lane) => {
+          const focused = focusedLine === lane;
+          const laneEnemies = enemyLanes[lane];
+          return (
             <div
+              key={lane}
               style={{
-                fontSize: 10,
-                letterSpacing: 1.4,
-                textTransform: 'uppercase',
-                color: '#64748b',
-                marginBottom: 6,
-                textAlign: 'center',
+                position: 'relative',
+                borderRadius: 12,
+                padding: focused ? '6px 6px 2px' : '0',
+                background: focused
+                  ? 'linear-gradient(180deg, rgba(56,189,248,.09), transparent 78%)'
+                  : 'transparent',
+                boxShadow: focused ? 'inset 0 0 0 1px rgba(56,189,248,.28)' : 'none',
+                transition: 'background 220ms ease, box-shadow 220ms ease',
               }}
             >
-              {lane === 'front' ? '⚔️ Front' : lane === 'mid' ? '🛡️ Mid' : '✨ Back'}
-            </div>
-            {lane === 'front' && enemies.length > 0 && (
-              <div style={{ marginBottom: 10 }}>
-                {enemies.map((enemy) => (
-                  <EnemyRow key={enemy.id} enemy={enemy} isBoss={enemy.tier === 'boss'} />
-                ))}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  fontSize: 10,
+                  letterSpacing: 1.4,
+                  textTransform: 'uppercase',
+                  color: focused ? '#7dd3fc' : '#64748b',
+                  marginBottom: 6,
+                }}
+              >
+                <span>{lane === 'front' ? '⚔️ Front' : lane === 'mid' ? '🛡️ Mid' : '✨ Back'}</span>
+                {focused ? (
+                  <span
+                    style={{
+                      fontFamily: 'var(--mono, monospace)',
+                      fontSize: 8.5,
+                      letterSpacing: 1,
+                      lineHeight: 1.4,
+                      padding: '1px 5px',
+                      borderRadius: 99,
+                      color: '#06121f',
+                      background: '#38bdf8',
+                      animation: reducedMotion ? undefined : 'aetheria-target-pulse 1.5s ease-in-out infinite',
+                    }}
+                  >
+                    ALVO
+                  </span>
+                ) : null}
               </div>
-            )}
-            {lanes[lane].map((hero) => (
-              <HeroRow key={hero.id} hero={hero} equipment={equipmentByCharacterId[hero.id] ?? EMPTY_LOADOUT} />
-            ))}
-          </div>
-        ))}
+              {laneEnemies.length > 0 && (
+                <div style={{ marginBottom: 10 }}>
+                  {laneEnemies.map((enemy) => (
+                    <EnemyRow key={enemy.id} enemy={enemy} isBoss={enemy.tier === 'boss'} />
+                  ))}
+                </div>
+              )}
+              {lanes[lane].map((hero) => (
+                <HeroRow key={hero.id} hero={hero} equipment={equipmentByCharacterId[hero.id] ?? EMPTY_LOADOUT} />
+              ))}
+            </div>
+          );
+        })}
 
         <FloatingCombatText floats={floats} positions={positions} reducedMotion={reducedMotion} />
       </div>
@@ -280,6 +331,7 @@ function HeroRow({
             size="sm"
             showFrame
             showGlow={topRarity !== null}
+            fallbackGlyph={classDefinition?.icon}
             label={`${hero.name}${classDefinition ? ` — ${classDefinition.name}` : ''}`}
           />
           {topRarity ? (

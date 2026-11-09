@@ -147,6 +147,39 @@ describe('targeting', () => {
     const dead = { ...makeEnemy('dead'), hp: 0, isAlive: false };
     expect(pickTarget([dead])).toBeNull();
   });
+
+  it('inimigos continuam a atacar a Back Line quando Front e Mid caem (regressão 8.3)', () => {
+    const front = { ...makeHero('h1'), hp: 0, isAlive: false, position: 'front' as const };
+    const mid = { ...makeHero('h2'), hp: 0, isAlive: false, position: 'mid' as const };
+    const backA = { ...makeHero('h3'), position: 'back' as const };
+    const backB = { ...makeHero('h4'), position: 'back' as const };
+
+    const base = createCombatState({
+      squad: [front, mid, backA, backB],
+      floor: 1,
+      wave: 1,
+      wavesPerFloor: 9,
+      isBossFloor: false,
+      seed: 42,
+    });
+    const enemy = makeEnemy('e1', 100_000);
+    let current: CombatState = { ...base, combatants: [...base.combatants, enemy], phase: 'fighting' };
+    const rng = createRng(42);
+    const damagedSquad = new Set<string>();
+
+    for (let i = 0; i < 180; i += 1) {
+      const before = new Map(current.combatants.map((actor) => [actor.id, actor.hp]));
+      current = advanceCombat(current, 1 / 60, { rng, now: 1_000 + i * 16 });
+      for (const actor of current.combatants) {
+        if (actor.team !== 'squad') continue;
+        if ((before.get(actor.id) ?? 0) > actor.hp) damagedSquad.add(actor.id);
+      }
+    }
+
+    expect(damagedSquad.size).toBeGreaterThan(0);
+    expect([...damagedSquad].every((id) => id === 'h3' || id === 'h4')).toBe(true);
+    expect(current.combatants.find((actor) => actor.id === 'h3')?.hp).toBeLessThan(backA.hp);
+  });
 });
 
 describe('advanceCombat', () => {

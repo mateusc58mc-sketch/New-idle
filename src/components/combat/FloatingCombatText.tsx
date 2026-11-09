@@ -116,4 +116,8 @@ export const FLOATING_TEXT_KEYFRAMES = `
   0%, 100% { box-shadow: inset 0 0 40px rgba(239,68,68,.25); }
   50%      { box-shadow: inset 0 0 70px rgba(239,68,68,.55); }
 }
+@keyframes aetheria-target-pulse {
+  0%, 100% { opacity: .62; box-shadow: 0 0 6px #38bdf8; }
+  50%      { opacity: 1; box-shadow: 0 0 14px #38bdf8; }
+}
 `;
