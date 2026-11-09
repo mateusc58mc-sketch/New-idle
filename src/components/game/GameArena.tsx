@@ -8,15 +8,17 @@ import { BASE_CLASSES } from '@/data/classes';
 import { RACE_BY_ID } from '@/data/races';
 import { useCombat } from '@/hooks/useCombat';
 import { useSupabaseSync } from '@/hooks/useSupabaseSync';
-import { emptyEquipment } from '@/lib/game/actors';
+import { equipmentFromRow } from '@/lib/game/loadout';
 import { floorDefinition, isBossWave, wavesForFloor } from '@/lib/game/tower';
 import type {
   BaseClass,
   Character,
+  EquipmentLoadout,
   InventoryItem,
   Squad,
   SquadRole,
   Specialization,
+  Uuid,
 } from '@/types/game';
 
 const LOCAL_PLAYER_ID = '00000000-0000-4000-8000-000000000001';
@@ -112,8 +114,8 @@ export function GameArena() {
   }, [sync.loading, sync.userId, sync.progress.gold, sync.progress.currentFloor, sync.progress.currentWave, hydratedUserId]);
 
   const squad = useMemo(
-    () => createStarterSquad(sync.userId ?? LOCAL_PLAYER_ID, sync.squadCharacters),
-    [sync.userId, sync.squadCharacters],
+    () => createStarterSquad(sync.userId ?? LOCAL_PLAYER_ID, sync.squadCharacters, sync.inventory),
+    [sync.userId, sync.squadCharacters, sync.inventory],
   );
   const onProgressChange = useCallback((next: ProgressSnapshot): void => setSnapshot(next), []);
   const onMarketplacePurchase = useCallback(async (gold: number): Promise<void> => {
@@ -176,6 +178,13 @@ function GameCombatSession({
   const floor = floorDefinition(combat.tower.floor);
   const bossWave = isBossWave(combat.tower);
 
+  /** Loadout por herói — o Paperdoll resolve raça + classe + itens equipados. */
+  const equipmentByCharacterId = useMemo(() => {
+    const map: Record<Uuid, EquipmentLoadout> = {};
+    for (const member of squad.members) map[member.id] = member.equipment;
+    return map;
+  }, [squad]);
+
   useEffect(() => {
     onProgressChange({
       gold: initialGold + combat.rewards.gold,
@@ -235,6 +244,7 @@ function GameCombatSession({
         totalWaves={wavesForFloor(combat.tower.floor)}
         isBossFloor={combat.tower.isBossFloor}
         onDrainEvents={combat.drainEvents}
+        equipmentByCharacterId={equipmentByCharacterId}
       />
       {marketplaceOpen ? (
         <MarketplaceModal
@@ -252,6 +262,7 @@ function GameCombatSession({
 function createStarterSquad(
   ownerId: string,
   savedCharacters: ReturnType<typeof useSupabaseSync>['squadCharacters'],
+  savedInventory: ReturnType<typeof useSupabaseSync>['inventory'] = [],
 ): Squad {
   const rows = [...savedCharacters].sort((left, right) => left.created_at.localeCompare(right.created_at));
   const buildCharacter = (starter: StarterHero, index: number): Character => {
@@ -282,7 +293,7 @@ function createStarterSquad(
       talents: [],
       allocationMode: 'auto' as const,
       skills: ownedSkills,
-      equipment: emptyEquipment(),
+      equipment: equipmentFromRow(saved?.equipped_items, savedInventory, ownerId),
       position: classTemplate.position,
       role: classTemplate.role,
       appearance: {

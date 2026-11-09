@@ -12,7 +12,7 @@
  * `cloak` desenham-se nas camadas `body`/`armor`, com `zOffset` para ficarem
  * atrás da armadura.
  */
-import type { EquipmentSlot, PaperdollLayerKey } from '@/types/game';
+import type { EquipmentSlot, PaperdollLayerKey, Rarity } from '@/types/game';
 
 /** Camadas por baixo de tudo. */
 export const BACKGROUND_LAYERS: readonly PaperdollLayerKey[] = ['aura', 'wings'] as const;
@@ -78,4 +78,27 @@ export const RARITY_GLOW: Readonly<Record<string, string>> = {
   epic: 'rgb(167 139 250 / 0.55)',
   legendary: 'rgb(251 191 36 / 0.6)',
   mythic: 'rgb(244 114 182 / 0.65)',
+} as const;
+
+/**
+ * Cor sólida por raridade — bordas, badges e realces do HUD.
+ * Mesma paleta de `rarity.css`, mantida em TS para estilos inline.
+ */
+export const RARITY_COLOR: Readonly<Record<Rarity, string>> = {
+  common: 'rgb(156 163 175)',
+  uncommon: 'rgb(74 222 128)',
+  rare: 'rgb(56 189 248)',
+  epic: 'rgb(167 139 250)',
+  legendary: 'rgb(251 191 36)',
+  mythic: 'rgb(244 114 182)',
+} as const;
+
+/** Nome legível da raridade no HUD/inventário. */
+export const RARITY_LABEL: Readonly<Record<Rarity, string>> = {
+  common: 'Comum',
+  uncommon: 'Incomum',
+  rare: 'Raro',
+  epic: 'Épico',
+  legendary: 'Lendário',
+  mythic: 'Mítico',
 } as const;
