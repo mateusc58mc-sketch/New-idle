@@ -129,8 +129,18 @@ describe('RNG determinístico', () => {
 describe('targeting', () => {
   it('escolhe front antes de mid e back', () => {
     const front = makeEnemy('front');
+    const mid = { ...makeEnemy('mid'), position: 'mid' as const };
     const back = { ...makeEnemy('back'), position: 'back' as const };
     expect(pickTarget([back, front])?.id).toBe('front');
+    const deadFront = { ...front, hp: 0, isAlive: false };
+    expect(pickTarget([back, mid, deadFront])?.id).toBe('mid');
+    const deadMid = { ...mid, hp: 0, isAlive: false };
+    expect(pickTarget([back, deadMid, deadFront])?.id).toBe('back');
+
+    const heroBack = { ...makeHero('hero-back'), position: 'back' as const };
+    const heroMid = { ...makeHero('hero-mid'), position: 'mid' as const };
+    const heroFront = { ...makeHero('hero-front'), hp: 0, isAlive: false };
+    expect(pickTarget([heroBack, heroMid, heroFront])?.id).toBe('hero-mid');
   });
 
   it('devolve null sem inimigos vivos', () => {

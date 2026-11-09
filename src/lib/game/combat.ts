@@ -30,6 +30,7 @@ import { BALANCE } from './balance';
 import { attackIntervalSec, computeDamage, computeHitChance, safeNumber } from './formulas';
 import { resolveSkillCast, applyCast, tickEffects, canAct, canCast } from './skills';
 import { SKILL_BY_ID } from '@/data/skills';
+import { prioritizeTargetLines } from './target';
 import type { Rng } from './rng';
 
 const C = BALANCE.combat;
@@ -205,14 +206,11 @@ export function pickTarget(enemies: readonly Combatant[]): Combatant | null {
   const alive = enemies.filter(isAlive);
   if (alive.length === 0) return null;
 
-  const order = ['front', 'mid', 'back'] as const;
-  for (const position of order) {
-    const candidates = alive.filter((actor) => actor.position === position);
-    if (candidates.length > 0) {
-      return candidates.reduce((lowest, actor) => (actor.hp < lowest.hp ? actor : lowest));
-    }
-  }
-  return alive[0] ?? null;
+  const prioritized = prioritizeTargetLines(alive);
+  const frontline = prioritized[0]?.position;
+  if (!frontline) return alive[0] ?? null;
+  const candidates = prioritized.filter((actor) => actor.position === frontline);
+  return candidates.reduce((lowest, actor) => (actor.hp < lowest.hp ? actor : lowest));
 }
 
 /* ==========================================================================

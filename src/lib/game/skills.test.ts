@@ -71,6 +71,7 @@ describe('catálogo de skills (executor)', () => {
 describe('seleção de alvos', () => {
   const caster = hero('h1');
   const front = { ...enemy('e1'), position: 'front' as const };
+  const mid = { ...enemy('e3'), position: 'mid' as const };
   const back = { ...enemy('e2'), position: 'back' as const };
   const ally = hero('h2', 400);
 
@@ -81,6 +82,20 @@ describe('seleção de alvos', () => {
       [caster, ally, back, front],
     );
     expect(targets[0]?.id).toBe('e1');
+
+    const deadFront = { ...front, hp: 0, isAlive: false };
+    expect(selectTargets(
+      { function: 'damage', scaling: 'atk', coefficient: 1, durationSec: null, tickIntervalSec: null, targetCount: 1, targetsAlly: false, element: 'neutral', modifiers: [], maxHpDamageCapPct: null },
+      caster,
+      [caster, back, mid, deadFront],
+    )[0]?.id).toBe('e3');
+
+    const deadMid = { ...mid, hp: 0, isAlive: false };
+    expect(selectTargets(
+      { function: 'damage', scaling: 'atk', coefficient: 1, durationSec: null, tickIntervalSec: null, targetCount: 1, targetsAlly: false, element: 'neutral', modifiers: [], maxHpDamageCapPct: null },
+      caster,
+      [caster, back, deadMid, deadFront],
+    )[0]?.id).toBe('e2');
   });
 
   it('cura o aliado com HP mais baixo', () => {

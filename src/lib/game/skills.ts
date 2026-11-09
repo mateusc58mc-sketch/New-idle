@@ -28,6 +28,7 @@ import type {
 } from '@/types/game';
 import { BALANCE } from './balance';
 import { applyDamageTo, applyHealTo, isAlive } from './combat';
+import { prioritizeTargetLines } from './target';
 import type { Rng } from './rng';
 
 const C = BALANCE.combat;
@@ -93,8 +94,7 @@ export function selectTargets(
     return sorted.slice(0, limit);
   }
 
-  const order = ['front', 'mid', 'back'] as const;
-  const sorted = [...pool].sort((a, b) => order.indexOf(a.position) - order.indexOf(b.position));
+  const sorted = prioritizeTargetLines(pool);
   return sorted.slice(0, limit);
 }
 

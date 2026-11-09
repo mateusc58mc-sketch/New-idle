@@ -11,6 +11,7 @@ import type {
   DerivedStats,
   EnemyCombatant,
   EquipmentSlot,
+  FormationPosition,
   InventoryItem,
   Item,
   Monster,
@@ -134,6 +135,8 @@ export interface BuildEnemyInput {
   readonly floor: number;
   readonly wave: number;
   readonly tier?: MonsterTier;
+  /** Linha do inimigo na formação; chefes permanecem na frente. */
+  readonly position?: FormationPosition;
   /** Multiplicador extra do chefe (curva exponencial da wiki). */
   readonly bossMultiplier?: number;
   readonly idSuffix?: string;
@@ -176,7 +179,7 @@ export function buildEnemyCombatant(input: BuildEnemyInput): EnemyCombatant | nu
     name: monster.name,
     level: Math.max(1, Math.round(input.floor * 2)),
     team: 'enemy',
-    position: tier === 'boss' ? 'front' : 'front',
+    position: tier === 'boss' ? 'front' : input.position ?? 'front',
     hp: stats.maxHp,
     maxHp: stats.maxHp,
     mp: 0,
@@ -236,6 +239,7 @@ export function buildWave(input: BuildWaveInput): BuiltWave {
   const pool = input.mobPool.length > 0 ? input.mobPool : [];
   const count = 2;
   const enemies: EnemyCombatant[] = [];
+  const enemyLines: readonly FormationPosition[] = ['front', 'mid', 'back'];
 
   for (let index = 0; index < count; index += 1) {
     // Escolha determinística: seed + andar + wave + índice.
@@ -246,6 +250,7 @@ export function buildWave(input: BuildWaveInput): BuiltWave {
       floor: input.floor,
       wave: input.wave,
       tier: index === 1 ? 'elite' : 'normal',
+      position: enemyLines[index] ?? 'back',
       idSuffix: String(index),
     });
     if (enemy) enemies.push(enemy);

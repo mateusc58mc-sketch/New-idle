@@ -54,7 +54,11 @@ export function useGameLoop(
   options: UseGameLoopOptions = {},
 ): UseGameLoopResult {
   const stepSec = options.stepSec ?? BALANCE.combat.tickIntervalSec;
-  const maxStepsPerFrame = options.maxStepsPerFrame ?? BALANCE.combat.maxCatchUpSteps;
+  const requestedMaxSteps = Math.floor(options.maxStepsPerFrame ?? BALANCE.combat.maxCatchUpSteps);
+  const maxStepsPerFrame = Math.min(
+    BALANCE.combat.maxCatchUpSteps,
+    Math.max(1, Number.isFinite(requestedMaxSteps) ? requestedMaxSteps : 1),
+  );
   const pauseWhenHidden = options.pauseWhenHidden ?? true;
 
   const [running, setRunning] = useState(options.autoStart ?? true);
@@ -97,8 +101,10 @@ export function useGameLoop(
       const rawDelta = (timestamp - lastFrameRef.current) / 1000;
       lastFrameRef.current = timestamp;
 
-      // Limita o delta a 250ms: um tab parado 10 min não simula 10 min.
-      const delta = Math.min(Math.max(rawDelta, 0), 0.25);
+      // Só repõe até três ticks por frame. Tempo excedente é descartado,
+      // em vez de virar uma sequência visual de ataques acelerados.
+      const maxDeltaSec = stepSec * maxStepsPerFrame;
+      const delta = Math.min(Math.max(rawDelta, 0), maxDeltaSec);
       accumulatorRef.current += delta;
 
       let steps = 0;

@@ -17,11 +17,11 @@
  *  · sprite-sheet de 1 frame por vez com `background-position` é trivial.
  * Se um dia forem 20+ avatares, `mode="canvas"` fica preparado para migrar.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { RACE_BY_ID } from '@/data/races';
 import { layerStyle } from '@/lib/game/paperdoll';
-import type { PaperdollState, ResolvedLayer } from '@/types/game';
+import type { PaperdollLayerKey, PaperdollState, ResolvedLayer } from '@/types/game';
 
 export type PaperdollSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -44,6 +44,16 @@ const SIZE_PX: Readonly<Record<PaperdollSize, number>> = {
   lg: 160,
   xl: 256,
 } as const;
+
+const LAYER_Z_INDEX: Readonly<Record<PaperdollLayerKey, number>> = {
+  aura: 10,
+  wings: 20,
+  body: 30,
+  armor: 40,
+  helmet: 50,
+  weapon: 60,
+  vfx: 70,
+};
 
 export function PaperdollAvatar({
   state,
@@ -110,6 +120,7 @@ export function PaperdollAvatar({
             layer={layer}
             canvasWidth={state.canvas.width}
             canvasHeight={state.canvas.height}
+            fallbackColor={race?.palette.accent ?? '#64748b'}
           />
         ))
       )}
@@ -121,13 +132,33 @@ function LayerImage({
   layer,
   canvasWidth,
   canvasHeight,
+  fallbackColor,
 }: {
   readonly layer: ResolvedLayer;
   readonly canvasWidth: number;
   readonly canvasHeight: number;
+  readonly fallbackColor: string;
 }) {
-  const style = layerStyle(layer, canvasWidth, canvasHeight);
+  const [failed, setFailed] = useState(false);
+  const zIndex = LAYER_Z_INDEX[layer.key] + (layer.zOffset < 0 ? -5 : 0);
+  const style = { ...layerStyle(layer, canvasWidth, canvasHeight), zIndex };
   const sheet = layer.asset.sheet;
+
+  if (failed) {
+    if (layer.key !== 'body') return null;
+    return (
+      <div
+        aria-hidden
+        style={{
+          ...style,
+          aspectRatio: `${canvasWidth} / ${canvasHeight}`,
+          borderRadius: '46% 46% 38% 38%',
+          background: `radial-gradient(ellipse at 50% 38%, ${fallbackColor} 0%, transparent 68%)`,
+          opacity: 0.35,
+        }}
+      />
+    );
+  }
 
   if (sheet) {
     // Sprite-sheet: mostra o primeiro frame via background-position.
@@ -142,7 +173,15 @@ function LayerImage({
           backgroundPosition: '0 0',
           backgroundRepeat: 'no-repeat',
         }}
-      />
+      >
+        <img
+          alt=""
+          aria-hidden
+          onError={() => setFailed(true)}
+          src={layer.asset.src}
+          style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
+        />
+      </div>
     );
   }
 
@@ -154,6 +193,7 @@ function LayerImage({
       draggable={false}
       loading="eager"
       decoding="async"
+      onError={() => setFailed(true)}
       style={{
         ...style,
         objectFit: 'contain',

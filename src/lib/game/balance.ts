@@ -15,8 +15,8 @@ export const BALANCE = {
   combat: {
     /** Intervalo fixo do acumulador do loop (segundos). 60 ticks/s. */
     tickIntervalSec: 1 / 60,
-    /** Teto de passos por frame — evita espiral da morte após um tab inactivo. */
-    maxCatchUpSteps: 240,
+    /** Teto rígido de catch-up por frame (50 ms a 60 ticks/s). */
+    maxCatchUpSteps: 3,
     /** Duração do telegraph do chefe antes da habilidade (segundos). */
     bossTelegraphSec: 2.5,
     /** Pausa entre waves (segundos). */
