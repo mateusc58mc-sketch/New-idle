@@ -3,8 +3,8 @@ import type { Metadata } from 'next';
 import { GameArena } from '@/components/game/GameArena';
 
 export const metadata: Metadata = {
-  title: 'Arena — Aetheria Online',
-  description: 'Combate e progresso sincronizado do Aetheria Online.',
+  title: 'Arena — Ascent Gate Idle',
+  description: 'Combate e progresso sincronizado do Ascent Gate Idle.',
 };
 
 export default function GamePage() {

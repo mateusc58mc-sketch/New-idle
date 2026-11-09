@@ -1,5 +1,5 @@
 /**
- * Aetheria — página raiz.
+ * Ascent Gate Idle — página raiz.
  *
  * Existe para que `https://<deploy>.vercel.app/` responda 200 em vez de 404.
  * Apresenta o estado do projeto e aponta para as demos interactivas das
@@ -12,7 +12,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Aetheria — Idle RPG 2D',
+  title: 'Ascent Gate Idle — Idle RPG 2D',
   description: 'Idle RPG de navegador com Paperdoll 2D, torre de andares e mercado entre jogadores.',
 };
 
@@ -115,7 +115,7 @@ export default function HomePage() {
             🗼
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, letterSpacing: 0.4 }}>Aetheria</h1>
+            <h1 style={{ margin: 0, fontSize: 22, letterSpacing: 0.4 }}>Ascent Gate Idle</h1>
             <p style={{ margin: 0, fontSize: 12.5, color: '#94a3b8' }}>
               Idle RPG 2D · Paperdoll · torre de andares · mercado entre jogadores
             </p>

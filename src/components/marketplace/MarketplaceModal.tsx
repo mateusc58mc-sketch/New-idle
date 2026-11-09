@@ -127,7 +127,7 @@ export function MarketplaceModal({ userId, gold, inventory, onClose, onPurchased
       <section aria-labelledby="marketplace-title" aria-modal="true" ref={dialogRef} role="dialog" style={dialogStyle} tabIndex={-1}>
         <header style={headerStyle}>
           <div>
-            <p style={eyebrowStyle}>Aetheria Online</p>
+            <p style={eyebrowStyle}>Ascent Gate Idle</p>
             <h2 id="marketplace-title" style={titleStyle}>Mercado entre jogadores</h2>
             <p style={subtitleStyle}>Seu saldo: {gold.toLocaleString('pt-BR')} ouro</p>
           </div>

@@ -1,4 +1,4 @@
-# Aetheria — Idle RPG 2D (Torre + RMT)
+# Ascent Gate Idle — Idle RPG 2D (Torre + RMT)
 
 Idle RPG de navegador com avatares padronizados em **Paperdoll 2D**, progressão
 automática de squad, torre de andares e ecossistema de mercado/cosméticos.

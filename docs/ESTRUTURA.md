@@ -1,4 +1,4 @@
-# Aetheria — Idle RPG 2D (Torre + RMT)
+# Ascent Gate Idle — Idle RPG 2D (Torre + RMT)
 
 Mapa de processo e estrutura de pastas. **Etapa 1 concluída**: estrutura + `src/types/game.ts`.
 

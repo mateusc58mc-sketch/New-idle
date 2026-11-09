@@ -204,7 +204,7 @@ function GameCombatSession({
     <section style={panelStyle}>
       <header style={headerStyle}>
         <div>
-          <h1 style={{ margin: 0, fontSize: 22 }}>Aetheria · Arena</h1>
+          <h1 style={{ margin: 0, fontSize: 22 }}>Ascent Gate · Arena</h1>
           <p style={{ margin: '6px 0 0', color: '#94a3b8', fontSize: 13 }}>
             Ouro {Math.max(0, initialGold + combat.rewards.gold).toLocaleString('pt-BR')} · Andar {combat.tower.floor} · Wave {combat.tower.wave}
             {' · '}Inventário {inventoryCount}
@@ -322,7 +322,7 @@ function createStarterSquad(
   return {
     id: ownerId,
     ownerId,
-    name: 'Esquadrão Aetheria',
+    name: 'Esquadrão Ascent Gate',
     members,
     formation: {
       front: members.filter((member) => member.position === 'front').map((member) => member.id),

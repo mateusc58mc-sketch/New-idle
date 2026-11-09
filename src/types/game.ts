@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- *  AETHERIA — Tipagens canónicas do domínio de jogo
+ *  ASCENT GATE IDLE — Tipagens canónicas do domínio de jogo
  * ============================================================================
  *  Fonte de verdade: wiki do projeto (Notion) — "Idle RPG Torre + RMT".
  *  Regras numeradas neste ficheiro seguem as páginas:

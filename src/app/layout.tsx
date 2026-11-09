@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import '@/styles/rarity.css';
 
 export const metadata = {
-  title: 'Aetheria Online - Idle RPG',
-  description: 'Aetheria Idle RPG Game',
+  title: 'Ascent Gate Idle - Idle RPG',
+  description: 'Ascent Gate Idle — Idle RPG de navegador com Paperdoll, torre de andares e mercado entre jogadores.',
 }
 
 export default function RootLayout({

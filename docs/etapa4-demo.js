@@ -516,6 +516,6 @@ function frame(ts) {
 buildUnits();
 renderRarityTable();
 renderRaces();
-log(`▶ Aetheria — andar 1 · ${familyFor(1).biome}`, '');
+log(`▶ Ascent Gate Idle — andar 1 · ${familyFor(1).biome}`, '');
 render();
 requestAnimationFrame(frame);

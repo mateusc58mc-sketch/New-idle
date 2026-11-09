@@ -347,6 +347,6 @@ $('btn-reset').onclick=()=>{
 };
 
 S.units=buildHeroes(22);
-log('▶ Aetheria etapa 5 — motor real','');
+log('▶ Ascent Gate Idle etapa 5 — motor real','');
 render();
 requestAnimationFrame(frame);
