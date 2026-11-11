@@ -17,17 +17,25 @@
  *  · sprite-sheet de 1 frame por vez com `background-position` é trivial.
  * Se um dia forem 20+ avatares, `mode="canvas"` fica preparado para migrar.
  *
- * Fallback (Stage 8.3): a arte em `public/assets/paperdoll/**` ainda não
- * existe. Em vez de um rectângulo cinzento, o avatar mostra SEMPRE um underlay
- * com a paleta da raça e o glifo da classe — assim o slot tem identidade visual
- * mesmo antes de os PNGs chegarem, e os PNGs simplesmente o cobrem quando
- * existirem.
+ * Fallback (Stage 8.5): a arte em `public/assets/paperdoll/**` ainda não
+ * existe. Em vez de um rectângulo cinzento, o avatar mostra SEMPRE uma carta
+ * de RPG: gradiente da classe, silhueta do herói, borda com a cor da raridade
+ * e uma faixa com os slots equipados. Quando os PNGs chegarem, cobrem a carta
+ * camada a camada — a identidade visual já está pronta.
  */
-import { useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 
 import { RACE_BY_ID } from '@/data/races';
+import { RARITY_COLOR, RARITY_GLOW } from '@/data/paperdoll-layers';
 import { layerStyle } from '@/lib/game/paperdoll';
-import type { PaperdollLayerKey, PaperdollState, ResolvedLayer } from '@/types/game';
+import type {
+  BaseClass,
+  EquipmentSlot,
+  PaperdollLayerKey,
+  PaperdollState,
+  Rarity,
+  ResolvedLayer,
+} from '@/types/game';
 
 export type PaperdollSize = 'sm' | 'md' | 'lg' | 'xl';
 
@@ -47,10 +55,14 @@ export interface PaperdollAvatarProps {
    * raça. Nunca é mostrado por cima da arte resolvida.
    */
   readonly fallbackGlyph?: string | undefined;
+  /** Classe-base — define o gradiente da carta de fallback. */
+  readonly baseClass?: BaseClass | undefined;
+  /** Raridade do conjunto — define a borda/glow da carta. */
+  readonly rarity?: Rarity | null | undefined;
 }
 
 const SIZE_PX: Readonly<Record<PaperdollSize, number>> = {
-  sm: 48,
+  sm: 56,
   md: 96,
   lg: 160,
   xl: 256,
@@ -67,7 +79,35 @@ const LAYER_Z_INDEX: Readonly<Record<PaperdollLayerKey, number>> = {
 };
 
 const FALLBACK_ACCENT = '#94a3b8';
-const FALLBACK_PRIMARY = '#334155';
+
+interface ClassTheme {
+  readonly from: string;
+  readonly via: string;
+  readonly ring: string;
+  readonly silhouette: string;
+}
+
+/** Paleta da carta por classe — legível mesmo sem qualquer PNG. */
+const CLASS_THEME: Readonly<Record<BaseClass, ClassTheme>> = {
+  warrior: { from: '#24070d', via: '#7f1d1d', ring: '#fca5a5', silhouette: '#fecaca' },
+  hunter: { from: '#042318', via: '#166534', ring: '#4ade80', silhouette: '#bbf7d0' },
+  cleric: { from: '#261d05', via: '#a16207', ring: '#fde68a', silhouette: '#fef3c7' },
+  mage: { from: '#180a30', via: '#5b21b6', ring: '#c4b5fd', silhouette: '#ddd6fe' },
+} as const;
+
+const DEFAULT_THEME: ClassTheme = { from: '#0f172a', via: '#334155', ring: FALLBACK_ACCENT, silhouette: '#e2e8f0' };
+
+const SLOT_META: Readonly<Record<EquipmentSlot, { readonly icon: string; readonly label: string }>> = {
+  helmet: { icon: '⛑', label: 'Elmo' },
+  armor: { icon: '🛡', label: 'Armadura' },
+  weapon: { icon: '⚔', label: 'Arma' },
+  offhand: { icon: '🗡', label: 'Mão secundária' },
+  cloak: { icon: '🧣', label: 'Capa' },
+  boots: { icon: '👢', label: 'Botas' },
+  accessory: { icon: '💍', label: 'Acessório' },
+  aura: { icon: '✨', label: 'Aura' },
+  wings: { icon: '🪽', label: 'Asas' },
+} as const;
 
 export function PaperdollAvatar({
   state,
@@ -77,13 +117,30 @@ export function PaperdollAvatar({
   label,
   className,
   fallbackGlyph,
+  baseClass,
+  rarity = null,
 }: PaperdollAvatarProps) {
   const px = SIZE_PX[size];
   const race = RACE_BY_ID.get(state.raceId);
+  const gradientId = `hero-card-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
 
-  const accent = race?.palette.accent ?? FALLBACK_ACCENT;
-  const primary = race?.palette.primary ?? FALLBACK_PRIMARY;
+  const theme = baseClass ? CLASS_THEME[baseClass] : DEFAULT_THEME;
   const glyph = fallbackGlyph ?? race?.name.slice(0, 1) ?? '?';
+
+  const rarityColor = rarity ? RARITY_COLOR[rarity] : null;
+  const rarityGlow = rarity ? RARITY_GLOW[rarity] : null;
+  const borderColor = rarityColor ?? `${theme.ring}aa`;
+  const glowColor = rarityGlow ?? `${theme.ring}66`;
+
+  // Slots com equipamento — derivados das camadas resolvidas.
+  const equippedSlots = useMemo(() => {
+    const seen = new Set<EquipmentSlot>();
+    for (const layer of state.layers) {
+      if (layer.slot && !seen.has(layer.slot)) seen.add(layer.slot);
+    }
+    return [...seen];
+  }, [state.layers]);
+  const visibleSlots = equippedSlots.slice(0, 5);
 
   // Camadas já vêm ordenadas de `resolvePaperdoll`; não reordenar aqui.
   const layers = state.layers;
@@ -94,19 +151,19 @@ export function PaperdollAvatar({
       height: px,
       position: 'relative' as const,
       overflow: 'hidden' as const,
-      borderRadius: showFrame ? Math.round(px * 0.16) : 0,
+      borderRadius: showFrame ? Math.round(px * 0.18) : 0,
       background: showFrame
-        ? 'radial-gradient(circle at 50% 32%, #243049 0%, #111827 70%)'
+        ? `linear-gradient(155deg, ${theme.from} 0%, ${theme.via} 62%, ${theme.from} 100%)`
         : 'transparent',
-      boxShadow:
-        showGlow && state.glow
-          ? `inset 0 0 ${Math.round(px * 0.12)}px ${state.glow}, 0 0 ${Math.round(px * 0.09)}px ${state.glow}`
-          : showFrame
-            ? 'inset 0 0 0 1px #334155'
-            : 'none',
-      transition: 'box-shadow 200ms ease',
+      border: showFrame ? `2px solid ${borderColor}` : undefined,
+      boxShadow: showGlow
+        ? `0 0 0 1px rgba(2,6,23,.7), 0 0 ${Math.round(px * 0.2)}px -2px ${glowColor}, inset 0 0 ${Math.round(px * 0.22)}px rgba(2,6,23,.55)`
+        : showFrame
+          ? 'inset 0 0 0 1px #334155'
+          : 'none',
+      transition: 'box-shadow 200ms ease, border-color 200ms ease',
     }),
-    [px, showFrame, showGlow, state.glow],
+    [px, showFrame, showGlow, theme.from, theme.via, borderColor, glowColor],
   );
 
   return (
@@ -118,45 +175,121 @@ export function PaperdollAvatar({
       aria-hidden={label ? undefined : true}
       data-animation={state.animation}
     >
-      {/* Underlay de identidade — atrás de todas as camadas. */}
+      {/* Vinheta + brilho diagonal: profundidade de carta, não bloco plano. */}
       <div
         aria-hidden
         style={{
           position: 'absolute',
           inset: 0,
-          background: `radial-gradient(circle at 50% 34%, ${primary}66 0%, ${primary}22 46%, transparent 74%)`,
+          background: `radial-gradient(circle at 30% 18%, ${theme.ring}33 0%, transparent 46%), linear-gradient(115deg, transparent 38%, rgba(255,255,255,.12) 50%, transparent 62%)`,
         }}
       />
 
-      {/* Anel interno suave: dá profundidade ao slot sem competir com a arte. */}
+      {/* Silhueta do herói — identidade visível mesmo sem arte final. */}
+      <svg
+        aria-hidden
+        viewBox="0 0 64 64"
+        style={{
+          position: 'absolute',
+          left: '8%',
+          bottom: '10%',
+          width: '84%',
+          height: '80%',
+          filter: `drop-shadow(0 0 ${Math.round(px * 0.12)}px ${theme.ring}88)`,
+        }}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={theme.silhouette} stopOpacity={0.95} />
+            <stop offset="100%" stopColor={theme.ring} stopOpacity={0.35} />
+          </linearGradient>
+        </defs>
+        {/* Capa / manto atrás do corpo */}
+        <path d="M32 9 L55 62 H9 Z" fill={theme.ring} opacity={0.16} />
+        {/* Cabeça (elmo/capuz) */}
+        <circle cx="32" cy="18" r="9" fill={`url(#${gradientId})`} />
+        {/* Ombros e tronco */}
+        <path d="M11 62c0-13 9.4-23 21-23s21 10 21 23z" fill={`url(#${gradientId})`} />
+        {/* Cinto / peitoral */}
+        <path d="M23 47h18v4H23z" fill={theme.ring} opacity={0.55} />
+        {/* Reflexo no elmo */}
+        <path d="M27 14a5 5 0 0 1 8 0" stroke={theme.silhouette} strokeWidth="1.6" fill="none" opacity={0.7} />
+      </svg>
+
+      {/* Glifo da classe — pequeno selo no canto, não o herói inteiro. */}
       <div
         aria-hidden
         style={{
           position: 'absolute',
-          inset: '16%',
+          top: Math.max(2, Math.round(px * 0.05)),
+          left: Math.max(2, Math.round(px * 0.05)),
+          width: Math.round(px * 0.26),
+          height: Math.round(px * 0.26),
           borderRadius: '50%',
-          border: `1px solid ${accent}2e`,
-          background: `radial-gradient(circle at 50% 30%, ${accent}24 0%, transparent 70%)`,
-        }}
-      />
-
-      {/* Glifo da classe/raça — fallback legível quando os PNGs faltam. */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
           display: 'grid',
           placeItems: 'center',
-          fontSize: Math.round(px * 0.42),
+          background: 'rgba(2,6,23,.6)',
+          border: `1px solid ${theme.ring}66`,
+          fontSize: Math.round(px * 0.16),
           lineHeight: 1,
-          color: accent,
-          textShadow: `0 0 10px ${accent}, 0 1px 2px rgba(0,0,0,.65)`,
+          color: theme.ring,
+          textShadow: `0 0 6px ${theme.ring}`,
           userSelect: 'none',
         }}
       >
         {glyph}
       </div>
+
+      {/* Faixa de equipamento: slots com peça equipada. */}
+      {showFrame && visibleSlots.length > 0 ? (
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 0,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: Math.max(1, Math.round(px * 0.025)),
+            padding: `${Math.max(1, Math.round(px * 0.035))}px 2px`,
+            background: 'linear-gradient(0deg, rgba(2,6,23,.92), rgba(2,6,23,.35) 70%, transparent)',
+          }}
+        >
+          {visibleSlots.map((slot) => (
+            <span
+              key={slot}
+              title={SLOT_META[slot].label}
+              style={{
+                width: Math.round(px * 0.145),
+                height: Math.round(px * 0.145),
+                borderRadius: Math.max(2, Math.round(px * 0.035)),
+                display: 'grid',
+                placeItems: 'center',
+                fontSize: Math.round(px * 0.1),
+                lineHeight: 1,
+                color: rarityColor ?? theme.ring,
+                background: 'rgba(15,23,42,.8)',
+                border: `1px solid ${(rarityColor ?? theme.ring)}88`,
+                boxShadow: rarityGlow ? `0 0 5px -1px ${rarityGlow}` : 'none',
+              }}
+            >
+              {SLOT_META[slot].icon}
+            </span>
+          ))}
+          {equippedSlots.length > visibleSlots.length ? (
+            <span
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: Math.max(6, Math.round(px * 0.1)),
+                color: rarityColor ?? theme.ring,
+              }}
+            >
+              +{equippedSlots.length - visibleSlots.length}
+            </span>
+          ) : null}
+        </div>
+      ) : null}
 
       {layers.map((layer, index) => (
         <LayerImage
@@ -184,8 +317,8 @@ function LayerImage({
   const style = { ...layerStyle(layer, canvasWidth, canvasHeight), zIndex };
   const sheet = layer.asset.sheet;
 
-  // Sem arte, o underlay do avatar assume o papel — não desenhar um placeholder
-  // cinzento por cima dele.
+  // Sem arte, a carta do avatar assume o papel — não desenhar um placeholder
+  // cinzento por cima dela.
   if (failed) return null;
 
   if (sheet) {
@@ -238,7 +371,7 @@ export function PaperdollSkeleton({ size = 'md' }: { readonly size?: PaperdollSi
       style={{
         width: px,
         height: px,
-        borderRadius: Math.round(px * 0.16),
+        borderRadius: Math.round(px * 0.18),
         background: 'linear-gradient(110deg, #12121f 8%, #1a1a2e 18%, #12121f 33%)',
         backgroundSize: '200% 100%',
         animation: 'paperdoll-shimmer 1.4s linear infinite',

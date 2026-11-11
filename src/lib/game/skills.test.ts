@@ -321,6 +321,50 @@ describe('applyCast', () => {
     const shielded = result.combatants.filter((actor) => actor.shield > 0);
     expect(shielded.length).toBeGreaterThan(0);
   });
+
+  it('regista o escudo como efeito activo para poder expirar', () => {
+    const caster = hero('h1');
+    const ally = hero('h2', 300);
+    const applications = resolveSkillCast({
+      caster,
+      skill: skill('skill.archmage.mana_barrier'),
+      combatants: [caster, ally],
+      now: 1000,
+      rng: createRng(8),
+    });
+    const result = applyCast([caster, ally], applications, {}, 1000);
+    const shielded = result.combatants.find((actor) => actor.id === 'h2');
+    expect(shielded?.shield).toBeGreaterThan(0);
+    expect(shielded?.effects.some((effect) => effect.kind === 'shield')).toBe(true);
+  });
+
+  it('escudo expira ao fim da duração e devolve o HP como alvo válido (regressão 8.5)', () => {
+    // `divine_shield` é uma imunidade de 4s. Antes o efeito não era guardado,
+    // logo o escudo absorvia dano para sempre e a Back Line ficava intocável.
+    const caster = hero('h1');
+    const ally = hero('h2', 300);
+    const applications = resolveSkillCast({
+      caster,
+      skill: skill('skill.paladin.divine_shield'),
+      combatants: [caster, ally],
+      now: 1000,
+      rng: createRng(9),
+    });
+    const cast = applyCast([caster, ally], applications, {}, 1000);
+    const shielded = cast.combatants.find((actor) => actor.id === 'h2');
+    expect(shielded?.shield).toBeGreaterThan(0);
+
+    // Ainda dentro dos 4s: o escudo mantém-se.
+    const during = tickEffects(cast.combatants, {}, 4000, 0.1);
+    const stillShielded = during.combatants.find((actor) => actor.id === 'h2');
+    expect(stillShielded?.shield).toBeGreaterThan(0);
+
+    // Depois dos 4s: o escudo é removido por completo.
+    const after = tickEffects(cast.combatants, {}, 6000, 0.1);
+    const expiredHero = after.combatants.find((actor) => actor.id === 'h2');
+    expect(expiredHero?.shield).toBe(0);
+    expect(after.expired.some((id) => id.includes('divine_shield'))).toBe(true);
+  });
 });
 
 describe('utilidades', () => {

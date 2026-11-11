@@ -403,4 +403,56 @@ describe('integração completa (torre + combate)', () => {
     const heroesAlive = state.combatants.filter((actor) => actor.team === 'squad' && actor.hp > 0).length;
     expect(heroesAlive).toBeGreaterThan(0);
   });
+
+  it('o chefe volta a ferir a Back Line quando o escudo divino expira (regressão 8.5)', () => {
+    // Reprodução do bug de produção: Front/Mid morrem, o Paladino já lançou
+    // `divine_shield` na Back Line e o escudo ficava activo para sempre. O
+    // boss atingia o alvo, mas o HP nunca descia.
+    const equipped = (skillId: string, equippedSlot: 1 | 2): Character['skills'][number] => ({
+      skillId, level: 1, duplicates: 0, unlockedAt: '2026-01-01T00:00:00.000Z', equippedSlot,
+    });
+
+    const base = makeSquad();
+    const members = base.members.map((member) => {
+      if (member.id === 'h1') {
+        return { ...member, skills: [equipped('skill.paladin.holy_hammer', 1), equipped('skill.paladin.divine_shield', 2)] };
+      }
+      if (member.id === 'h2') {
+        return { ...member, skills: [equipped('skill.sharpshooter.deadly_shot', 1), equipped('skill.sharpshooter.triple_shot', 2)] };
+      }
+      if (member.id === 'h3') {
+        return { ...member, skills: [equipped('skill.divine_priest.greater_heal', 1), equipped('skill.divine_priest.group_heal', 2)] };
+      }
+      return member;
+    });
+    const [h1, h2, h3, h4] = members;
+    if (!h1 || !h2 || !h3 || !h4) throw new Error('squad incompleto');
+    const squad: Squad = { ...base, members: [h1, h2, h3, h4] };
+
+    const definition = floorDefinition(10);
+    const built = buildWave({
+      squad, floor: 10, wave: 10,
+      mobPool: definition.mobPool, bossMonsterId: definition.bossMonsterId,
+      isBossWave: true, seed: 1,
+    });
+
+    let state = createCombatState({
+      squad: built.heroes, enemies: built.enemies,
+      floor: 10, wave: 10, wavesPerFloor: 10, isBossFloor: true, seed: 1,
+    });
+    const rng = createRng(1);
+    let backDamaged = false;
+
+    for (let tick = 0; tick < 1200; tick += 1) {
+      const before = new Map(state.combatants.map((actor) => [actor.id, actor.hp]));
+      state = advanceCombat(state, 1 / 60, { rng, now: 1000 + tick * 16 });
+      for (const id of ['h3', 'h4'] as const) {
+        const after = state.combatants.find((actor) => actor.id === id);
+        if ((before.get(id) ?? 0) > (after?.hp ?? 0)) backDamaged = true;
+      }
+      if (state.phase === 'wipe') break;
+    }
+
+    expect(backDamaged).toBe(true);
+  });
 });

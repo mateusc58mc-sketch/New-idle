@@ -280,6 +280,12 @@ export function tickEffects(
     const surviving: ActiveEffect[] = [];
     for (const effect of actor.effects) {
       if (effect.expiresAtMs <= now) {
+        // Escudos têm prazo: ao expirar devolvem o que ainda resta do valor
+        // concedido. Sem isto, `divine_shield` (4s de imunidade) ficava
+        // permanentemente activo e a Back Line nunca perdia HP.
+        if (effect.kind === 'shield') {
+          next = { ...next, shield: Math.max(0, next.shield - Math.round(effect.tickValue)) };
+        }
         expired.push(effect.id as ContentId);
         continue;
       }
@@ -391,8 +397,15 @@ export function applyCast(
         }
       }
 
-      // Efeitos de tick e buffs entram na lista de activos.
-      if (effect.tickIntervalSec > 0 || effect.modifiers.length > 0 || effect.kind === 'buff' || effect.kind === 'debuff') {
+      // Efeitos de tick, buffs e escudos entram na lista de activos.
+      // Os escudos precisam de estar aqui para poderem expirar (ver `tickEffects`).
+      if (
+        effect.tickIntervalSec > 0 ||
+        effect.modifiers.length > 0 ||
+        effect.kind === 'buff' ||
+        effect.kind === 'debuff' ||
+        effect.kind === 'shield'
+      ) {
         updated = { ...updated, effects: [...updated.effects, effect].slice(-C.maxActiveEffects) };
       }
 

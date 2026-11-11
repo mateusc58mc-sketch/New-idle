@@ -330,7 +330,9 @@ function HeroRow({
             state={paperdoll.state}
             size="sm"
             showFrame
-            showGlow={topRarity !== null}
+            showGlow
+            baseClass={hero.baseClass}
+            rarity={topRarity}
             fallbackGlyph={classDefinition?.icon}
             label={`${hero.name}${classDefinition ? ` — ${classDefinition.name}` : ''}`}
           />
