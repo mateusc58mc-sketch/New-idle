@@ -11,7 +11,7 @@ export default function SpriteLabLayout({
   readonly children: ReactNode;
 }) {
   return (
-    <div className="min-h-screen bg-void-950 text-slate-100 flex flex-col font-sans">
+    <div className="h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 font-sans">
       {children}
     </div>
   );

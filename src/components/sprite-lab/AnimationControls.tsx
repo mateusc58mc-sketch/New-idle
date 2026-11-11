@@ -29,15 +29,15 @@ export function AnimationControls({
   onAnimationChange,
 }: AnimationControlsProps) {
   return (
-    <div className="flex flex-col gap-2 px-3 py-2">
-      <div className="flex items-center justify-between">
-        <h4 className="text-sm font-semibold text-arcane-400 tracking-wide uppercase">
-          Animation State
-        </h4>
-        <span className="text-[11px] text-slate-500 capitalize">{currentAnimation}</span>
+    <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 pr-3 border-r border-slate-800 shrink-0">
+        <span className="w-2 h-2 rounded-full bg-arcane-400 animate-pulse" />
+        <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+          Animation Engine
+        </span>
       </div>
 
-      <div className="grid grid-cols-5 gap-1">
+      <div className="flex items-center gap-1.5">
         {ANIMATION_PRESETS.map((anim) => {
           const isActive = anim.id === currentAnimation;
           return (
@@ -46,15 +46,15 @@ export function AnimationControls({
               type="button"
               onClick={() => onAnimationChange(anim.id)}
               className={[
-                'flex flex-col items-center justify-center p-1.5 rounded text-center transition-all border',
+                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all border select-none active:scale-95',
                 isActive
-                  ? 'bg-arcane-500/20 border-arcane-500 text-arcane-400 font-bold scale-[1.03]'
-                  : 'bg-void-800/80 border-void-700 text-slate-400 hover:text-slate-200 hover:bg-void-700',
+                  ? 'bg-arcane-500/20 border-arcane-400 text-arcane-300 shadow-lg shadow-arcane-500/10 ring-1 ring-arcane-400/30'
+                  : 'bg-slate-950/80 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800/80 hover:border-slate-700',
               ].join(' ')}
-              title={`Simulate ${anim.label}`}
+              title={`Simulate state: ${anim.label}`}
             >
               <span className="text-sm">{anim.icon}</span>
-              <span className="text-[10px] mt-0.5">{anim.label}</span>
+              <span>{anim.label}</span>
             </button>
           );
         })}

@@ -64,18 +64,21 @@ export function ReferenceUploader({
   };
 
   return (
-    <div className="flex flex-col gap-2 p-3 bg-void-900 border-b border-void-700">
-      <div className="flex items-center justify-between">
-        <h4 className="text-xs font-semibold text-slate-300 uppercase tracking-wider">
-          Reference Image
-        </h4>
+    <div className="bg-slate-900 border border-slate-800 rounded-lg p-3.5 shadow-xl">
+      <div className="flex items-center justify-between mb-2.5">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">🖼️</span>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-300">
+            Reference Overlay
+          </h4>
+        </div>
         {referenceImage ? (
           <button
             type="button"
             onClick={onClearImage}
-            className="text-[11px] text-red-400 hover:text-red-300 transition-colors"
+            className="text-[11px] font-medium text-rose-400 hover:text-rose-300 transition-colors px-1.5 py-0.5 rounded hover:bg-rose-950/40 border border-rose-900/40"
           >
-            Clear Ref
+            Clear
           </button>
         ) : null}
       </div>
@@ -87,17 +90,21 @@ export function ReferenceUploader({
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
           className={[
-            'border border-dashed rounded p-3 text-center cursor-pointer transition-colors flex flex-col items-center justify-center gap-1',
+            'border-2 border-dashed rounded-lg p-3.5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-1.5',
             isDragging
-              ? 'border-arcane-400 bg-arcane-500/10'
-              : 'border-void-600 hover:border-slate-500 bg-void-800/50',
+              ? 'border-arcane-400 bg-arcane-500/10 scale-[0.99]'
+              : 'border-slate-800 hover:border-slate-700 bg-slate-950/60 hover:bg-slate-950',
           ].join(' ')}
         >
-          <span className="text-lg">🖼️</span>
-          <span className="text-xs text-slate-400">
-            Drop reference image here, or <span className="text-arcane-400 underline">browse</span>
+          <div className="w-8 h-8 rounded-full bg-slate-800/80 flex items-center justify-center text-slate-400 text-sm">
+            📁
+          </div>
+          <span className="text-xs text-slate-300 font-medium">
+            Arraste imagem de referência
           </span>
-          <span className="text-[10px] text-slate-500">PNG, JPG or WebP</span>
+          <span className="text-[11px] text-slate-500">
+            ou clique para carregar PNG/JPG
+          </span>
           <input
             ref={fileInputRef}
             type="file"
@@ -107,19 +114,21 @@ export function ReferenceUploader({
           />
         </div>
       ) : (
-        <div className="space-y-2">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 rounded border border-void-700 bg-void-950 overflow-hidden shrink-0">
+        <div className="space-y-2.5 bg-slate-950/80 border border-slate-800/80 rounded-lg p-2.5">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 rounded-md border border-slate-700 bg-slate-900 overflow-hidden shrink-0 shadow-inner">
               <img
                 src={referenceImage}
                 alt="Ref thumbnail"
-                className="w-full h-full object-cover"
+                className="w-full h-full object-contain"
               />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                <span>Ref Opacity</span>
-                <span className="font-mono text-slate-500">{Math.round(referenceOpacity * 100)}%</span>
+              <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+                <span className="text-[11px] font-semibold text-slate-300">Opacity</span>
+                <span className="font-mono text-[11px] text-arcane-400 font-bold">
+                  {Math.round(referenceOpacity * 100)}%
+                </span>
               </div>
               <input
                 type="range"
@@ -128,7 +137,7 @@ export function ReferenceUploader({
                 step={0.05}
                 value={referenceOpacity}
                 onChange={(e) => onOpacityChange(parseFloat(e.target.value))}
-                className="w-full h-1.5 rounded-full appearance-none bg-void-700 accent-arcane-500 cursor-pointer"
+                className="w-full h-1.5 rounded-lg appearance-none bg-slate-800 accent-arcane-400 cursor-pointer"
               />
             </div>
           </div>

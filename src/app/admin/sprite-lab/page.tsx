@@ -3,8 +3,9 @@
 /**
  * Ascent Gate Idle — Sprite Synthesizer & Mini-Editor
  *
- * Internal dev tool for calibrating parametric SVG items, paperdoll layers,
- * rarity glows, and reference image comparisons.
+ * Professional Dark Fantasy asset studio dashboard with a clean 3-column
+ * responsive studio grid layout for calibrating parametric SVG layers, rarity glows,
+ * animations, and reference overlays.
  */
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -279,49 +280,57 @@ ${layerMarkups}
   };
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden bg-void-950 text-slate-200">
-      {/* Top Navbar */}
-      <header className="h-12 border-b border-void-700 bg-void-900 px-4 flex items-center justify-between shrink-0">
+    <div className="h-screen w-screen overflow-hidden flex flex-col bg-slate-950 text-slate-100 font-sans select-none">
+      {/* ── Fixed Top Header Bar (h-14) ── */}
+      <header className="h-14 shrink-0 border-b border-slate-800 bg-slate-900/60 backdrop-blur-md px-4 flex items-center justify-between z-30">
+        {/* Brand & Breadcrumb */}
         <div className="flex items-center gap-3">
           <Link
             href="/game"
-            className="text-xs text-slate-400 hover:text-slate-100 flex items-center gap-1 transition-colors"
+            className="flex items-center gap-1.5 text-xs font-medium text-slate-400 hover:text-white px-2.5 py-1.5 rounded-lg hover:bg-slate-800/60 transition-all border border-transparent hover:border-slate-700"
           >
-            ← Voltar ao Jogo
+            <span>←</span>
+            <span>Voltar ao Jogo</span>
           </Link>
-          <div className="h-4 w-px bg-void-700" />
-          <h1 className="text-sm font-bold tracking-wider text-slate-100 flex items-center gap-2">
-            <span>Ascent Gate Idle</span>
-            <span className="text-xs px-2 py-0.5 rounded bg-arcane-500/20 text-arcane-400 border border-arcane-500/30">
-              Sprite Synthesizer Lab
+          <div className="h-4 w-px bg-slate-800" />
+          <div className="flex items-center gap-2">
+            <span className="text-base">🧪</span>
+            <span className="text-sm font-bold tracking-wide text-slate-200">
+              Ascent Gate Idle
             </span>
-          </h1>
+            <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-arcane-500/10 text-arcane-400 border border-arcane-500/30">
+              Sprite Lab Studio
+            </span>
+          </div>
         </div>
 
-        {/* Toolbar Center */}
-        <div className="flex items-center gap-3 text-xs">
+        {/* Center Viewport Controls (Grid & Zoom) */}
+        <div className="flex items-center gap-2.5">
           <button
             type="button"
             onClick={() => setState((p) => ({ ...p, showGrid: !p.showGrid }))}
             className={[
-              'px-2 py-1 rounded border transition-colors',
+              'flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border transition-all active:scale-95',
               state.showGrid
-                ? 'bg-arcane-500/20 border-arcane-500 text-arcane-400'
-                : 'bg-void-800 border-void-700 text-slate-400 hover:text-slate-200',
+                ? 'bg-arcane-500/15 border-arcane-500/60 text-arcane-300 shadow-sm'
+                : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800',
             ].join(' ')}
           >
-            Grid: {state.showGrid ? 'ON' : 'OFF'}
+            <span>🌐</span>
+            <span>Grid: {state.showGrid ? 'ON' : 'OFF'}</span>
           </button>
 
-          <div className="flex items-center gap-1 bg-void-800 border border-void-700 rounded px-1.5 py-0.5">
-            <span className="text-[11px] text-slate-500">Zoom:</span>
+          <div className="flex items-center gap-1 bg-slate-900 border border-slate-800 rounded-lg p-1">
+            <span className="text-[11px] font-medium text-slate-400 px-1.5">Zoom:</span>
             {[1, 1.5, 2].map((z) => (
               <button
                 key={z}
                 type="button"
                 onClick={() => setZoom(z)}
-                className={`px-1.5 py-0.5 rounded text-[11px] ${
-                  zoom === z ? 'bg-void-700 text-arcane-400 font-bold' : 'text-slate-400'
+                className={`px-2 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                  zoom === z
+                    ? 'bg-slate-800 text-arcane-400 shadow-sm border border-slate-700/80'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
                 }`}
               >
                 {z * 100}%
@@ -332,25 +341,26 @@ ${layerMarkups}
           <button
             type="button"
             onClick={() => setState(createDefaultSynthesizerState())}
-            className="px-2 py-1 rounded bg-void-800 border border-void-700 text-slate-400 hover:text-slate-200 hover:bg-void-700"
+            className="px-2.5 py-1.5 text-xs font-medium rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-all active:scale-95"
+            title="Restaurar estado inicial"
           >
-            Reset
+            ↺ Reset
           </button>
         </div>
 
-        {/* Export Buttons */}
+        {/* Action Buttons (Export JSON & SVG) */}
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={handleExportJson}
-            className="px-2.5 py-1 text-xs rounded bg-void-800 hover:bg-void-700 border border-void-700 text-slate-300 transition-colors"
+            className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-white transition-all active:scale-95 shadow-sm"
           >
             Export JSON
           </button>
           <button
             type="button"
             onClick={handleExportSvg}
-            className="px-3 py-1 text-xs font-semibold rounded bg-arcane-500 hover:bg-arcane-400 text-void-950 transition-colors flex items-center gap-1.5 shadow-sm"
+            className="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-arcane-500 hover:bg-arcane-400 text-slate-950 transition-all active:scale-95 flex items-center gap-1.5 shadow-md shadow-arcane-500/20"
           >
             <span>💾</span>
             <span>Export SVG</span>
@@ -358,42 +368,43 @@ ${layerMarkups}
         </div>
       </header>
 
-      {/* Main Workspace (3-column layout) */}
-      <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel: Reference & Layers (280px) */}
-        <aside className="w-72 border-r border-void-700 bg-void-900/90 flex flex-col shrink-0 overflow-hidden">
-          <ReferenceUploader
-            referenceImage={state.referenceImage}
-            referenceOpacity={state.referenceOpacity}
-            onImageLoaded={handleImageLoaded}
-            onClearImage={handleClearReference}
-            onOpacityChange={handleOpacityChange}
-          />
-          <div className="flex-1 overflow-y-auto">
-            <LayerPanel
-              layers={state.layers}
-              selectedLayerId={state.selectedLayerId}
-              onSelect={handleSelectLayer}
-              onToggleVisibility={handleToggleLayerVisibility}
-              onAdd={handleAddLayer}
-              onRemove={handleRemoveLayer}
-              onMoveUp={(id) => handleMoveLayer(id, -1)}
-              onMoveDown={(id) => handleMoveLayer(id, 1)}
+      {/* ── 3-Column Studio Grid Layout ── */}
+      <div className="flex-1 min-h-0 grid grid-cols-[320px_1fr_340px] overflow-hidden">
+        {/* ── LEFT COLUMN (320px): Reference Overlay & Layer Management ── */}
+        <aside className="h-full border-r border-slate-800 bg-slate-900/30 flex flex-col p-3 gap-3 min-h-0 overflow-hidden">
+          <div className="shrink-0">
+            <ReferenceUploader
+              referenceImage={state.referenceImage}
+              referenceOpacity={state.referenceOpacity}
+              onImageLoaded={handleImageLoaded}
+              onClearImage={handleClearReference}
+              onOpacityChange={handleOpacityChange}
             />
           </div>
+
+          <LayerPanel
+            layers={state.layers}
+            selectedLayerId={state.selectedLayerId}
+            onSelect={handleSelectLayer}
+            onToggleVisibility={handleToggleLayerVisibility}
+            onAdd={handleAddLayer}
+            onRemove={handleRemoveLayer}
+            onMoveUp={(id) => handleMoveLayer(id, -1)}
+            onMoveDown={(id) => handleMoveLayer(id, 1)}
+          />
         </aside>
 
-        {/* Center Panel: Interactive Canvas Workspace */}
-        <main className="flex-1 flex flex-col bg-void-950 overflow-hidden">
-          {/* Canvas Viewport */}
-          <div className="flex-1 overflow-auto flex items-center justify-center p-8 bg-[radial-gradient(#1e1e38_1px,transparent_1px)] [background-size:16px_16px]">
+        {/* ── CENTER COLUMN (Flex-1): Canvas Viewport & Floating Animation Bar ── */}
+        <main className="h-full relative flex flex-col min-h-0 min-w-0 bg-slate-950 overflow-hidden">
+          {/* Canvas Viewport with transparent checkerboard background */}
+          <div className="flex-1 overflow-auto flex items-center justify-center p-8 bg-[linear-gradient(45deg,#0f172a_25%,transparent_25%),linear-gradient(-45deg,#0f172a_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#0f172a_75%),linear-gradient(-45deg,transparent_75%,#0f172a_75%)] [background-size:24px_24px] [background-position:0_0,0_12px,12px_-12px,-12px_0px]">
             <div
               style={{
                 transform: `scale(${zoom})`,
                 transformOrigin: 'center center',
-                transition: 'transform 150ms ease-out',
+                transition: 'transform 180ms cubic-bezier(0.16, 1, 0.3, 1)',
               }}
-              className="drop-shadow-2xl"
+              className="drop-shadow-[0_25px_35px_rgba(0,0,0,0.85)]"
             >
               <SynthesizerCanvas
                 state={state}
@@ -402,8 +413,8 @@ ${layerMarkups}
             </div>
           </div>
 
-          {/* Bottom Bar: Animation State Simulation */}
-          <div className="border-t border-void-700 bg-void-900/95 py-1">
+          {/* Floating Bottom Bar: Character Animation State Simulator */}
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-20 bg-slate-900/90 backdrop-blur-md border border-slate-800/90 rounded-2xl px-4 py-2.5 shadow-2xl ring-1 ring-white/10">
             <AnimationControls
               currentAnimation={state.animationState}
               onAnimationChange={handleAnimationChange}
@@ -411,8 +422,8 @@ ${layerMarkups}
           </div>
         </main>
 
-        {/* Right Panel: Calibration Controls (320px) */}
-        <aside className="w-80 border-l border-void-700 bg-void-900/90 flex flex-col shrink-0 overflow-y-auto divide-y divide-void-700">
+        {/* ── RIGHT COLUMN (340px): Calibration Controls & Rarity Glow ── */}
+        <aside className="h-full border-l border-slate-800 bg-slate-900/30 flex flex-col p-3 gap-3 min-h-0 overflow-y-auto">
           <RarityGlowControls
             rarity={state.rarity}
             glowEnabled={state.glowEnabled}
@@ -422,13 +433,11 @@ ${layerMarkups}
             onIntensityChange={handleIntensityChange}
           />
 
-          <div className="flex-1">
-            <LayerControls
-              layer={selectedLayer}
-              onUpdate={handleUpdateLayer}
-              onApplyTemplate={handleApplyTemplate}
-            />
-          </div>
+          <LayerControls
+            layer={selectedLayer}
+            onUpdate={handleUpdateLayer}
+            onApplyTemplate={handleApplyTemplate}
+          />
         </aside>
       </div>
     </div>

@@ -92,7 +92,7 @@ export function SynthesizerCanvas({ state, onSelectLayer }: SynthesizerCanvasPro
 
   return (
     <div
-      className="relative overflow-hidden rounded-lg border border-void-700"
+      className="relative overflow-hidden rounded-xl border border-slate-700/80 shadow-2xl ring-1 ring-white/10"
       style={{ width: canvasWidth, height: canvasHeight }}
     >
       <svg
