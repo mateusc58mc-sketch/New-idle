@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
 
+import '@/app/globals.css';
+import '@/styles/rarity.css';
+
 export const metadata = {
   title: 'Sprite Lab — Ascent Gate Idle',
   description: 'Internal sprite synthesizer and parametric SVG asset mini-editor',
