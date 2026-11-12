@@ -1217,6 +1217,8 @@ export interface ResolvedLayer {
   readonly anchor: PaperdollAnchor;
   readonly opacity: number;
   readonly tint: string | null;
+  /** Raridade da peça que originou a camada (null = corpo ou cosmético). */
+  readonly rarity: Rarity | null;
   /** Índice em PAPERDOLL_LAYER_ORDER (ordenação primária). */
   readonly order: number;
   /** Deslocamento dentro da camada (capa/botas atrás da peça principal). */

@@ -58,7 +58,11 @@ export type SvgTemplateCategory =
   | 'helmet'
   | 'shield'
   | 'aura'
-  | 'wings';
+  | 'wings'
+  | 'cloak'
+  | 'boots'
+  | 'accessory'
+  | 'body';
 
 /** Parameters passed to SVG template renderers */
 export interface SvgTemplateParams {
@@ -66,6 +70,11 @@ export interface SvgTemplateParams {
   readonly stroke: string;
   readonly glowColor: string | null;
   readonly scale: number;
+  /**
+   * Id único do filtro de glow. Sem ele, todas as camadas do mesmo SVG
+   * partilhariam `tplGlow` e o último filtro venceria.
+   */
+  readonly filterId?: string;
 }
 
 /** A parametric SVG template */

@@ -1,269 +1,260 @@
 /**
- * Ascent Gate Idle — página raiz.
+ * Ascent Gate Idle — Portal Oficial de Entrada (Game Hub)
  *
- * Existe para que `https://<deploy>.vercel.app/` responda 200 em vez de 404.
- * Apresenta o estado do projeto e aponta para as demos interactivas das
- * etapas já entregues, que estão em `/docs/*.html`.
- *
- * Quando o shell autenticado de `(game)/tower` estiver completo, esta página
- * passa a redireccionar para ele. Por agora é o índice oficial do estado do
- * MVP do Ascent Gate Idle: todas as etapas entregues e validadas.
+ * Padrão Dark Fantasy imersivo (estilo clássico Ragnarök / MU Online).
+ * Apresenta os pilares do jogo e pontos de acesso direto para a Arena de Combate,
+ * o Sprite Lab Studio e os Catálogos de Paperdoll.
  */
 import type { Metadata } from 'next';
+import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'Ascent Gate Idle — Idle RPG 2D',
-  description: 'Idle RPG de navegador com Paperdoll 2D, torre de andares e mercado entre jogadores.',
-};
-
-interface Stage {
-  readonly step: string;
-  readonly title: string;
-  readonly detail: string;
-  readonly status: 'done' | 'partial' | 'pending';
-  readonly href: string | null;
-}
-
-const STAGES: readonly Stage[] = [
-  {
-    step: '01',
-    title: 'Estrutura e tipagens',
-    detail: 'types/game.ts — 1 400 linhas, sem any, TypeScript estrito.',
-    status: 'done',
-    href: null,
-  },
-  {
-    step: '02',
-    title: 'Motor de combate',
-    detail: 'Fórmulas, RNG determinístico, loop de passo fixo, progressão híbrida de pontos.',
-    status: 'done',
-    href: '/sandbox.html',
-  },
-  {
-    step: '03',
-    title: 'Catálogos e Paperdoll',
-    detail: '9 raças, 4 classes, 8 specs, 96 talentos, 32 skills, 20 itens, 30 andares.',
-    status: 'done',
-    href: '/paperdoll.html',
-  },
-  {
-    step: '04',
-    title: 'Skills, drops e torre',
-    detail: 'Executor de DoT/HoT/escudo/controlo, sorteio de loot, máquina de estados da torre.',
-    status: 'done',
-    href: '/etapa4.html',
-  },
-  {
-    step: '05',
-    title: 'Integração no HUD',
-    detail: 'Motor real no ArenaView, floating combat text, transições de wave e andar, barras de HP/MP e medidor de turno.',
-    status: 'done',
-    href: '/etapa5.html',
-  },
-  {
-    step: '06',
-    title: 'Supabase & Persistência',
-    detail: 'Migrations, RLS por proprietário, sync de progresso e equipamento via useSupabaseSync.',
-    status: 'done',
-    href: null,
-  },
-  {
-    step: '07',
-    title: 'Sistema de Mercado RMT',
-    detail: 'Marketplace entre jogadores, listings, inventário e compra atómica via RPC buy_marketplace_item.',
-    status: 'done',
-    href: null,
-  },
-  {
-    step: '08',
-    title: 'Camada Visual 2D',
-    detail: 'Paperdoll modular em camadas, glow de raridade (Comum → Mítico) e correção definitiva do targeting da Back Line.',
-    status: 'done',
-    href: '/paperdoll.html',
-  },
-] as const;
-
-const STATUS_LABEL: Readonly<Record<Stage['status'], string>> = {
-  done: 'Concluído',
-  partial: 'Parcial',
-  pending: 'Pendente',
-};
-
-const STATUS_COLOR: Readonly<Record<Stage['status'], string>> = {
-  done: '#4ade80',
-  partial: '#fbbf24',
-  pending: '#64748b',
+  title: 'Ascent Gate Idle — Portal Oficial • Idle RPG 2D',
+  description:
+    'Idle RPG 2D de navegador com Paperdoll modular, combate tático em torre de andares e economia RMT entre jogadores.',
 };
 
 export default function HomePage() {
-  const done = STAGES.filter((stage) => stage.status === 'done').length;
-  const progress = Math.round((done / STAGES.length) * 100);
-
   return (
-    <main
-      style={{
-        minHeight: '100vh',
-        margin: 0,
-        padding: '48px 20px 72px',
-        background:
-          'radial-gradient(1200px 600px at 50% -10%, #1b2440 0%, transparent 60%), radial-gradient(800px 400px at 90% 110%, #2a1630 0%, transparent 60%), #07070c',
-        color: '#e5e7eb',
-        fontFamily: 'ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif',
-      }}
-    >
-      <div style={{ maxWidth: 920, margin: '0 auto' }}>
-        <header style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 8 }}>
-          <div
-            style={{
-              width: 46,
-              height: 46,
-              borderRadius: 14,
-              display: 'grid',
-              placeItems: 'center',
-              fontSize: 22,
-              background: 'linear-gradient(145deg, #1e293b, #0f172a)',
-              border: '1px solid #334155',
-              boxShadow: '0 0 22px rgba(56,189,248,0.25)',
-            }}
-          >
-            🗼
+    <div className="min-h-screen bg-slate-950 text-slate-100 flex flex-col font-sans selection:bg-arcane-500 selection:text-slate-950 overflow-x-hidden">
+      {/* ── Ambient Glow Background ── */}
+      <div className="fixed inset-0 pointer-events-none z-0">
+        <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[1000px] h-[550px] bg-gradient-to-b from-sky-500/15 via-violet-600/10 to-transparent blur-3xl opacity-70" />
+        <div className="absolute top-1/2 -right-40 w-[600px] h-[600px] bg-amber-500/10 blur-3xl rounded-full opacity-40" />
+        <div className="absolute -bottom-40 -left-40 w-[600px] h-[600px] bg-rose-500/10 blur-3xl rounded-full opacity-40" />
+      </div>
+
+      {/* ── Top Navigation Bar ── */}
+      <header className="relative z-10 h-16 border-b border-slate-800/80 bg-slate-950/70 backdrop-blur-md px-6 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 via-sky-500 to-indigo-600 p-[1px] shadow-lg shadow-sky-500/20">
+            <div className="w-full h-full bg-slate-950 rounded-[11px] flex items-center justify-center text-lg">
+              🗼
+            </div>
           </div>
           <div>
-            <h1 style={{ margin: 0, fontSize: 22, letterSpacing: 0.4 }}>Ascent Gate Idle</h1>
-            <p style={{ margin: 0, fontSize: 12.5, color: '#94a3b8' }}>
-              Idle RPG 2D · Paperdoll · torre de andares · mercado entre jogadores
-            </p>
+            <span className="text-sm font-black tracking-widest text-transparent bg-clip-text bg-gradient-to-r from-amber-200 via-sky-200 to-indigo-200 uppercase">
+              Ascent Gate
+            </span>
+            <span className="block text-[10px] font-mono tracking-wider text-slate-400 uppercase">
+              Idle RPG Studio
+            </span>
           </div>
-        </header>
+        </div>
 
-        <a
-          href="/game"
-          style={{
-            display: 'inline-flex',
-            alignItems: 'center',
-            marginTop: 18,
-            padding: '9px 14px',
-            border: '1px solid #0ea5e9',
-            borderRadius: 9,
-            color: '#bae6fd',
-            fontSize: 12,
-            textDecoration: 'none',
-            background: 'rgba(14,165,233,0.12)',
-          }}
-        >
-          Abrir arena
-        </a>
+        <nav className="flex items-center gap-4 text-xs font-semibold">
+          <Link
+            href="/game"
+            className="text-slate-300 hover:text-white transition-colors"
+          >
+            Arena
+          </Link>
+          <Link
+            href="/admin/sprite-lab"
+            className="text-slate-300 hover:text-white transition-colors"
+          >
+            Sprite Lab
+          </Link>
+          <a
+            href="/paperdoll.html"
+            className="text-slate-300 hover:text-white transition-colors"
+          >
+            Paperdoll
+          </a>
+          <div className="h-4 w-px bg-slate-800" />
+          <span className="text-[11px] font-mono px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+            ● Motor Determinístico
+          </span>
+        </nav>
+      </header>
 
-        <section
-          style={{
-            marginTop: 24,
-            marginBottom: 28,
-            padding: 16,
-            borderRadius: 14,
-            border: '1px solid #232342',
-            background: 'linear-gradient(180deg, rgba(18,18,31,0.95), rgba(11,11,20,0.95))',
-          }}
-        >
-          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, color: '#94a3b8', marginBottom: 8 }}>
-            <span>Progresso do MVP · Ascent Gate Idle</span>
-            <span style={{ fontFamily: 'ui-monospace, monospace', color: progress >= 100 ? '#4ade80' : '#e2e8f0' }}>{progress}%</span>
+      {/* ── Main Content Container ── */}
+      <main className="relative z-10 flex-1 max-w-6xl mx-auto px-6 py-12 flex flex-col items-center">
+        {/* ── Hero Section ── */}
+        <section className="text-center max-w-3xl my-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-900 border border-slate-800 text-xs text-amber-300 font-semibold mb-6 shadow-inner">
+            <span>✨</span>
+            <span>EXPERIÊNCIA OFICIAL • NAVEGADOR & MOBILE FIRST</span>
           </div>
-          <div style={{ height: 8, borderRadius: 99, background: '#1e293b', overflow: 'hidden' }}>
-            <div
-              style={{
-                height: '100%',
-                width: `${progress}%`,
-                background:
-                  progress >= 100
-                    ? 'linear-gradient(90deg, #15803d, #4ade80, #bbf7d0)'
-                    : 'linear-gradient(90deg, #0ea5e9, #7dd3fc)',
-                boxShadow: progress >= 100 ? '0 0 12px rgba(74,222,128,.55)' : undefined,
-                transition: 'width 300ms',
-              }}
-            />
-          </div>
-          <p style={{ margin: '12px 0 0', fontSize: 11.5, color: '#64748b', lineHeight: 1.7 }}>
-            Etapas 1 a 8 do <strong style={{ color: '#94a3b8' }}>Ascent Gate Idle</strong> concluídas e validadas —
-            181 de 181 testes verdes. O MVP reúne arena de combate real, persistência Supabase com RLS, mercado RMT com
-            compra atómica por RPC e Paperdoll modular com glow de raridade.
+
+          <h1 className="text-5xl md:text-6xl font-black tracking-tight text-white leading-tight mb-4 drop-shadow-sm">
+            ASCENT GATE{' '}
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-sky-400 to-purple-400">
+              IDLE
+            </span>
+          </h1>
+
+          <p className="text-lg md:text-xl text-slate-300 font-medium mb-2">
+            Idle RPG 2D • Paperdoll Modular • Torre de Andares • Mercado RMT
           </p>
+          <p className="text-sm text-slate-400 max-w-2xl mx-auto leading-relaxed">
+            Monte seu squad lendário de 4 heróis, escale centenas de andares repletos de chefes épicos,
+            forje equipamentos mitológicos e participe da economia ativa no mercado aberto entre jogadores.
+          </p>
+
+          {/* ── Action Buttons Hub (Grid de 3 CTAs) ── */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-10 max-w-3xl mx-auto">
+            {/* CTA 1: Entrar na Arena */}
+            <Link
+              href="/game"
+              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-gradient-to-b from-sky-500/20 to-sky-950/40 border border-sky-500/40 hover:border-sky-400 shadow-xl shadow-sky-500/10 hover:shadow-sky-500/25 transition-all duration-200 active:scale-95 text-center"
+            >
+              <div className="w-12 h-12 rounded-xl bg-sky-500/20 border border-sky-400/40 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
+                ⚔️
+              </div>
+              <span className="text-base font-bold text-white group-hover:text-sky-200">
+                Entrar na Arena
+              </span>
+              <span className="text-xs text-slate-400 mt-1">
+                Combate tático, waves e chefes da torre
+              </span>
+              <span className="mt-3 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-sky-500/30 text-sky-200 border border-sky-400/30">
+                JOGAR AGORA →
+              </span>
+            </Link>
+
+            {/* CTA 2: Sprite Lab Studio */}
+            <Link
+              href="/admin/sprite-lab"
+              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-gradient-to-b from-purple-500/20 to-purple-950/40 border border-purple-500/40 hover:border-purple-400 shadow-xl shadow-purple-500/10 hover:shadow-purple-500/25 transition-all duration-200 active:scale-95 text-center"
+            >
+              <div className="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-400/40 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
+                🧪
+              </div>
+              <span className="text-base font-bold text-white group-hover:text-purple-200">
+                Sprite Lab Studio
+              </span>
+              <span className="text-xs text-slate-400 mt-1">
+                Editor vetorial SVG 256×256 & calibração
+              </span>
+              <span className="mt-3 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/30">
+                ABRIR ESTÚDIO →
+              </span>
+            </Link>
+
+            {/* CTA 3: Catálogos & Paperdoll */}
+            <a
+              href="/paperdoll.html"
+              className="group relative flex flex-col items-center justify-center p-5 rounded-2xl bg-gradient-to-b from-amber-500/20 to-amber-950/40 border border-amber-500/40 hover:border-amber-400 shadow-xl shadow-amber-500/10 hover:shadow-amber-500/25 transition-all duration-200 active:scale-95 text-center"
+            >
+              <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-400/40 flex items-center justify-center text-2xl mb-3 group-hover:scale-110 transition-transform">
+                🛡️
+              </div>
+              <span className="text-base font-bold text-white group-hover:text-amber-200">
+                Catálogos & Paperdoll
+              </span>
+              <span className="text-xs text-slate-400 mt-1">
+                9 Raças, 9 Slots & Shaders de Raridade
+              </span>
+              <span className="mt-3 text-[10px] font-mono font-semibold px-2 py-0.5 rounded-full bg-amber-500/30 text-amber-200 border border-amber-400/30">
+                VER CATÁLOGO →
+              </span>
+            </a>
+          </div>
         </section>
 
-        <ol style={{ listStyle: 'none', padding: 0, margin: 0, display: 'grid', gap: 10 }}>
-          {STAGES.map((stage) => (
-            <li
-              key={stage.step}
-              style={{
-                display: 'flex',
-                gap: 14,
-                alignItems: 'flex-start',
-                padding: '12px 14px',
-                borderRadius: 12,
-                border: '1px solid #232342',
-                background: 'rgba(15,23,42,0.6)',
-              }}
-            >
-              <span
-                style={{
-                  fontFamily: 'ui-monospace, monospace',
-                  fontSize: 12,
-                  color: '#475569',
-                  paddingTop: 2,
-                  minWidth: 22,
-                }}
-              >
-                {stage.step}
-              </span>
-              <div style={{ flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                  <strong style={{ fontSize: 13.5 }}>{stage.title}</strong>
-                  <span
-                    style={{
-                      fontFamily: 'ui-monospace, monospace',
-                      fontSize: 9.5,
-                      letterSpacing: 0.6,
-                      textTransform: 'uppercase',
-                      padding: '2px 7px',
-                      borderRadius: 5,
-                      color: STATUS_COLOR[stage.status],
-                      border: `1px solid ${STATUS_COLOR[stage.status]}44`,
-                      background: `${STATUS_COLOR[stage.status]}11`,
-                    }}
-                  >
-                    {STATUS_LABEL[stage.status]}
-                  </span>
-                </div>
-                <p style={{ margin: '4px 0 0', fontSize: 11.5, color: '#94a3b8', lineHeight: 1.6 }}>
-                  {stage.detail}
-                </p>
-              </div>
-              {stage.href ? (
-                <a
-                  href={stage.href}
-                  style={{
-                    fontSize: 11.5,
-                    color: '#7dd3fc',
-                    textDecoration: 'none',
-                    border: '1px solid #334155',
-                    borderRadius: 8,
-                    padding: '5px 10px',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
-                  abrir demo
-                </a>
-              ) : null}
-            </li>
-          ))}
-        </ol>
+        {/* ── Os Três Pilares do Jogo ── */}
+        <section className="w-full my-16">
+          <div className="text-center mb-10">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-arcane-400 mb-2">
+              Pilares Fundamentais da Arquitetura
+            </h2>
+            <h3 className="text-3xl font-black text-white">
+              Engenharia e Imersão no Estilo Clássico
+            </h3>
+          </div>
 
-        <footer style={{ marginTop: 32, fontSize: 11, color: '#475569', lineHeight: 1.8, textAlign: 'center' }}>
-          Next.js · TypeScript estrito · Tailwind · Supabase
-          <br />
-          As demos são páginas estáticas em <code style={{ fontFamily: 'ui-monospace, monospace' }}>/public</code> e
-          replicam a lógica de <code style={{ fontFamily: 'ui-monospace, monospace' }}>src/lib/game/*</code>.
-        </footer>
-      </div>
-    </main>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Pilar 1 */}
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col">
+              <div className="w-12 h-12 rounded-xl bg-sky-500/10 border border-sky-500/30 flex items-center justify-center text-2xl mb-4">
+                ⚔️
+              </div>
+              <h4 className="text-lg font-bold text-white mb-2">
+                Combate Tático Determinístico
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed flex-1">
+                Formações de 4 heróis divididos em linhas táticas (Front, Mid e Back). Sinergia entre
+                Guerreiros, Caçadores, Clérigos e Magos com 8 especializações, árvore de talentos e
+                motor de cálculo blindado com 184 testes unitários automatizados.
+              </p>
+              <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                <span>RNG Determinístico</span>
+                <span className="text-sky-400 font-mono font-semibold">184 Testes Verdes</span>
+              </div>
+            </div>
+
+            {/* Pilar 2 */}
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col">
+              <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center text-2xl mb-4">
+                🎨
+              </div>
+              <h4 className="text-lg font-bold text-white mb-2">
+                Paperdoll 2D & Sprites por Código
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed flex-1">
+                Composição em 7 camadas rígidas de renderização com canvas base unificado de 256×256 pixels.
+                Shader dinâmico de Glow de Raridade do Comum ao Mítico, refinos de +1 a +15 e suporte
+                a SVGs paramétricos customizáveis em tempo real.
+              </p>
+              <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                <span>6 Tiers de Raridade</span>
+                <span className="text-purple-400 font-mono font-semibold">Glow Dinâmico</span>
+              </div>
+            </div>
+
+            {/* Pilar 3 */}
+            <div className="p-6 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col">
+              <div className="w-12 h-12 rounded-xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-2xl mb-4">
+                💎
+              </div>
+              <h4 className="text-lg font-bold text-white mb-2">
+                Economia Viva & Mercado RMT
+              </h4>
+              <p className="text-xs text-slate-400 leading-relaxed flex-1">
+                Mercado aberto entre jogadores com moedas integradas: Ouro (farm contínuo), Cristais (progressão)
+                e Saldo Cash. Transações atômicas seguras via banco de dados Supabase com Row-Level Security
+                e rastreabilidade completa por UUIDs permanentes.
+              </p>
+              <div className="mt-4 pt-4 border-t border-slate-800 flex items-center justify-between text-[11px] text-slate-400">
+                <span>Persistência RLS</span>
+                <span className="text-amber-400 font-mono font-semibold">Postgres / Supabase</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── Especificações Técnicas de Estúdio ── */}
+        <section className="w-full max-w-4xl p-6 rounded-2xl bg-slate-900/40 border border-slate-800/80 text-center text-xs text-slate-400 my-4">
+          <div className="flex flex-wrap justify-center items-center gap-6 font-mono text-[11px]">
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-sky-400" /> Next.js 15 App Router
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400" /> TypeScript 5.7 Estrito
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-indigo-400" /> Tailwind CSS + PostCSS
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400" /> Supabase Realtime & RLS
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-400" /> Vitest Suite (184 Testes)
+            </span>
+          </div>
+        </section>
+      </main>
+
+      {/* ── Footer ── */}
+      <footer className="relative z-10 border-t border-slate-800/80 bg-slate-950 py-6 text-center text-xs text-slate-500">
+        <p className="mb-1 font-medium text-slate-400">
+          Ascent Gate Idle © 2026 • Todos os direitos reservados.
+        </p>
+        <p className="text-[11px] text-slate-600">
+          Arquitetura e desenvolvimento contínuo para RPGs de navegador de alto desempenho.
+        </p>
+      </footer>
+    </div>
   );
 }

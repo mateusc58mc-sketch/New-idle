@@ -16,6 +16,7 @@ export function createDefaultSynthesizerState(): SynthesizerState {
         stroke: '#0284c7',
         glowColor: RARITY_GLOW.legendary ?? null,
         scale: 1,
+        filterId: 'tplGlow-demo',
       })
     : 'M28 8 L32 2 L36 8 L36 50 L34 54 L30 54 L28 50 Z';
 

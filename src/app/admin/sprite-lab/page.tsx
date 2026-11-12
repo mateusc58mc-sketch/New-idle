@@ -78,7 +78,7 @@ export default function SpriteLabPage() {
     const glowColor = RARITY_GLOW[state.rarity] ?? null;
 
     const pathData = template
-      ? template.render({ fill, stroke, glowColor, scale: 1 })
+      ? template.render({ fill, stroke, glowColor, scale: 1, filterId: `tplGlow-${newId}` })
       : 'M 16 16 L 48 16 L 48 48 L 16 48 Z';
 
     const newLayer: SpriteLayerConfig = {
@@ -163,6 +163,7 @@ export default function SpriteLabPage() {
         stroke,
         glowColor,
         scale: target.scale,
+        filterId: `tplGlow-${layerId}`,
       });
 
       return {

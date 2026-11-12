@@ -14,16 +14,18 @@
  * de combate ou em combate conforme o motor decidir. Ver `DerivedStatKey`.
  */
 import type { PaperdollAnchor, Race, RacePaperdoll } from '@/types/game';
+import { PAPERDOLL_ANCHORS, PAPERDOLL_CANVAS, PAPERDOLL_TILE_SIZE } from './paperdoll-layers';
 
 /** Caixa lógica comum a todas as raças (arte base 256×256). */
-export const PAPERDOLL_CANVAS = { width: 256, height: 256, displayScale: 1 } as const;
+export { PAPERDOLL_CANVAS };
 
 /**
- * Âncoras partilhadas. Valores em px da arte-base de 256×256, com o avatar
- * centrado. Ajustar aqui desalinha TODAS as raças ao mesmo tempo — é
- * intencional: é o único ponto de calibração do sistema.
+ * Âncoras partilhadas. São offsets de calibração sobre os rects oficiais
+ * (`PAPERDOLL_ART_RECTS`) — o layout da silhueta vive no design system.
+ * Ajustar aqui desalinha TODAS as raças ao mesmo tempo — é intencional: é o
+ * único ponto de calibração por camada.
  */
-const ZERO_ANCHOR: PaperdollAnchor = { x: 0, y: 0, scale: 1, zOffset: 0, flipX: false };
+const SHARED_ANCHORS: Readonly<Record<keyof typeof PAPERDOLL_ANCHORS, PaperdollAnchor>> = PAPERDOLL_ANCHORS;
 
 /**
  * Constrói o `RacePaperdoll` de uma raça. Todas as raças passam por aqui,
@@ -33,18 +35,16 @@ function buildPaperdoll(bodySrc: string): RacePaperdoll {
   return {
     bodyLayer: {
       src: bodySrc,
-      sheet: { frameWidth: 256, frameHeight: 256, columns: 4, rows: 1, fps: 8 },
+      sheet: {
+        frameWidth: PAPERDOLL_TILE_SIZE,
+        frameHeight: PAPERDOLL_TILE_SIZE,
+        columns: 4,
+        rows: 1,
+        fps: 8,
+      },
     },
     canvas: PAPERDOLL_CANVAS,
-    anchors: {
-      aura: ZERO_ANCHOR,
-      wings: ZERO_ANCHOR,
-      body: ZERO_ANCHOR,
-      armor: ZERO_ANCHOR,
-      helmet: ZERO_ANCHOR,
-      weapon: ZERO_ANCHOR,
-      vfx: ZERO_ANCHOR,
-    },
+    anchors: SHARED_ANCHORS,
     animations: ['idle', 'attack', 'hit', 'cast', 'death'],
   };
 }

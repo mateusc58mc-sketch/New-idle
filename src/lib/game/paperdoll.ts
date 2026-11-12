@@ -25,7 +25,7 @@ import type {
   ResolvedPaperdollSlot,
 } from '@/types/game';
 import { PAPERDOLL_LAYER_ORDER } from '@/types/game';
-import { RARITY_GLOW, SLOT_BINDING_MAP, SLOT_LAYER_BINDINGS } from '@/data/paperdoll-layers';
+import { RARITY_GLOW, SLOT_BINDING_MAP, SLOT_LAYER_BINDINGS, artRectFor } from '@/data/paperdoll-layers';
 
 export interface ResolvePaperdollInput {
   readonly race: Race;
@@ -64,6 +64,7 @@ export function resolvePaperdoll(input: ResolvePaperdollInput): ResolvePaperdoll
       anchor: bodyAnchor,
       opacity: 1,
       tint: appearance.skinTone || race.palette.skin,
+      rarity: null,
       order: PAPERDOLL_LAYER_ORDER.indexOf('body'),
       zOffset: 0,
       slot: null,
@@ -90,6 +91,7 @@ export function resolvePaperdoll(input: ResolvePaperdollInput): ResolvePaperdoll
       anchor,
       opacity: 1,
       tint: null,
+      rarity: instance.rarity,
       order: layerIndex,
       zOffset: binding.zOffset,
       slot: binding.slot,
@@ -126,6 +128,7 @@ export function resolvePaperdoll(input: ResolvePaperdollInput): ResolvePaperdoll
       anchor,
       opacity: 1,
       tint: null,
+      rarity: null,
       order: PAPERDOLL_LAYER_ORDER.indexOf(key),
       zOffset: -100, // cosméticos ficam por cima da peça equivalente
       slot: null,
@@ -169,20 +172,24 @@ export function highestRarity(rarities: readonly Rarity[]): Rarity | null {
 
 /**
  * Gera o estilo CSS de uma camada.
- * `position: absolute` + `transform: translate(x,y) scale()` mantém todas as
- * raças alinhadas porque `x`/`y` vêm das âncoras comuns.
+ *
+ * Geometria: o canvas lógico é 256×256 e cada peça tem um rect oficial
+ * (`PAPERDOLL_ART_RECTS`). A camada é posicionada nesse rect, em percentagem
+ * do canvas — logo o mesmo estilo serve 56 px (Arena) e 256 px (catálogo).
+ * `anchor.x/y` são offsets de calibração e `anchor.scale` multiplica o rect.
  */
 export function layerStyle(layer: ResolvedLayer, canvasWidth: number, canvasHeight: number): CSSProperties {
   const scale = layer.anchor.scale;
-  const width = (canvasWidth / scale) * 100;
+  const rect = artRectFor(layer.key, layer.slot);
+  const width = (rect.size * scale * 100) / canvasWidth;
   return {
     position: 'absolute',
-    left: `${(layer.anchor.x / canvasWidth) * 100}%`,
-    top: `${(layer.anchor.y / canvasHeight) * 100}%`,
+    left: `${((rect.x + layer.anchor.x) / canvasWidth) * 100}%`,
+    top: `${((rect.y + layer.anchor.y) / canvasHeight) * 100}%`,
     width: `${width}%`,
     height: 'auto',
     opacity: layer.opacity,
-    transform: `${layer.anchor.flipX ? 'scaleX(-1) ' : ''}scale(${scale})`,
+    transform: layer.anchor.flipX ? 'scaleX(-1)' : undefined,
     transformOrigin: 'top left',
     imageRendering: 'pixelated',
     pointerEvents: 'none',

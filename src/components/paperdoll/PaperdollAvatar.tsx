@@ -28,6 +28,7 @@ import { useId, useMemo, useState } from 'react';
 import { RACE_BY_ID } from '@/data/races';
 import { RARITY_COLOR, RARITY_GLOW } from '@/data/paperdoll-layers';
 import { layerStyle } from '@/lib/game/paperdoll';
+import { getParametricSvgForLayer } from '@/lib/sprite-lab/svg-templates';
 import type {
   BaseClass,
   EquipmentSlot,
@@ -122,13 +123,13 @@ export function PaperdollAvatar({
 }: PaperdollAvatarProps) {
   const px = SIZE_PX[size];
   const race = RACE_BY_ID.get(state.raceId);
-  const gradientId = `hero-card-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
+  const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
   const theme = baseClass ? CLASS_THEME[baseClass] : DEFAULT_THEME;
   const glyph = fallbackGlyph ?? race?.name.slice(0, 1) ?? '?';
 
   const rarityColor = rarity ? RARITY_COLOR[rarity] : null;
-  const rarityGlow = rarity ? RARITY_GLOW[rarity] : null;
+  const rarityGlow = rarity ? (RARITY_GLOW[rarity] ?? null) : null;
   const borderColor = rarityColor ?? `${theme.ring}aa`;
   const glowColor = rarityGlow ?? `${theme.ring}66`;
 
@@ -185,36 +186,8 @@ export function PaperdollAvatar({
         }}
       />
 
-      {/* Silhueta do herói — identidade visível mesmo sem arte final. */}
-      <svg
-        aria-hidden
-        viewBox="0 0 64 64"
-        style={{
-          position: 'absolute',
-          left: '8%',
-          bottom: '10%',
-          width: '84%',
-          height: '80%',
-          filter: `drop-shadow(0 0 ${Math.round(px * 0.12)}px ${theme.ring}88)`,
-        }}
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor={theme.silhouette} stopOpacity={0.95} />
-            <stop offset="100%" stopColor={theme.ring} stopOpacity={0.35} />
-          </linearGradient>
-        </defs>
-        {/* Capa / manto atrás do corpo */}
-        <path d="M32 9 L55 62 H9 Z" fill={theme.ring} opacity={0.16} />
-        {/* Cabeça (elmo/capuz) */}
-        <circle cx="32" cy="18" r="9" fill={`url(#${gradientId})`} />
-        {/* Ombros e tronco */}
-        <path d="M11 62c0-13 9.4-23 21-23s21 10 21 23z" fill={`url(#${gradientId})`} />
-        {/* Cinto / peitoral */}
-        <path d="M23 47h18v4H23z" fill={theme.ring} opacity={0.55} />
-        {/* Reflexo no elmo */}
-        <path d="M27 14a5 5 0 0 1 8 0" stroke={theme.silhouette} strokeWidth="1.6" fill="none" opacity={0.7} />
-      </svg>
+      {/* Silhueta estática removida: a camada `body` desenha o herói
+          paramétrico, por isso não há duplicação de silhueta na carta. */}
 
       {/* Glifo da classe — pequeno selo no canto, não o herói inteiro. */}
       <div
@@ -297,6 +270,10 @@ export function PaperdollAvatar({
           layer={layer}
           canvasWidth={state.canvas.width}
           canvasHeight={state.canvas.height}
+          instanceId={`${instanceId}-${index}`}
+          accent={theme.ring}
+          accentDark={theme.from}
+          rarityGlow={rarityGlow}
         />
       ))}
     </div>
@@ -307,19 +284,45 @@ function LayerImage({
   layer,
   canvasWidth,
   canvasHeight,
+  instanceId,
+  accent,
+  accentDark,
+  rarityGlow,
 }: {
   readonly layer: ResolvedLayer;
   readonly canvasWidth: number;
   readonly canvasHeight: number;
+  readonly instanceId: string;
+  readonly accent: string;
+  readonly accentDark: string;
+  readonly rarityGlow: string | null;
 }) {
   const [failed, setFailed] = useState(false);
   const zIndex = LAYER_Z_INDEX[layer.key] + (layer.zOffset < 0 ? -5 : 0);
   const style = { ...layerStyle(layer, canvasWidth, canvasHeight), zIndex };
   const sheet = layer.asset.sheet;
 
-  // Sem arte, a carta do avatar assume o papel — não desenhar um placeholder
-  // cinzento por cima dela.
-  if (failed) return null;
+  // Sem arte física PNG, recorre ao SVG paramétrico do slot (bow, staff,
+  // robe, hood...), já posicionado no rect oficial do canvas 256×256.
+  if (failed) {
+    const layerGlow = layer.rarity ? RARITY_COLOR[layer.rarity] : rarityGlow;
+    const isBody = layer.key === 'body';
+    const parametricSvg = getParametricSvgForLayer(layer.key, layer.slot, {
+      assetSrc: layer.asset.src,
+      rarityGlow: layerGlow,
+      instanceId,
+      fill: isBody ? (layer.tint ?? accent) : accent,
+      stroke: isBody ? '#7c5a3a' : accentDark,
+    });
+    if (!parametricSvg) return null;
+    return (
+      <div
+        aria-hidden
+        style={{ ...style, aspectRatio: '1 / 1' }}
+        dangerouslySetInnerHTML={{ __html: parametricSvg }}
+      />
+    );
+  }
 
   if (sheet) {
     // Sprite-sheet: mostra o primeiro frame via background-position.
