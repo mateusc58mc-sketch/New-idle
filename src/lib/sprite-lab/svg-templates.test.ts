@@ -16,6 +16,7 @@ import {
 import { PAPERDOLL_LAYER_ORDER, type EquipmentSlot, type PaperdollLayerKey } from '@/types/game';
 import {
   SPRITE_CANVAS_STANDARD,
+  SVG_TEMPLATES,
   TEMPLATE_BY_ID,
   getParametricSvgForLayer,
   selectParametricTemplateId,
@@ -75,6 +76,32 @@ describe('selecção de template por asset', () => {
   it('todas as camadas produzem um template existente', () => {
     for (const key of PAPERDOLL_LAYER_ORDER) {
       expect(TEMPLATE_BY_ID.has(selectParametricTemplateId(key, null, null))).toBe(true);
+    }
+  });
+
+  it('a lâmina lendária de Azzinoth está nativa no catálogo', () => {
+    expect(TEMPLATE_BY_ID.has('warglaive')).toBe(true);
+    expect(
+      selectParametricTemplateId('weapon', 'weapon', '/assets/paperdoll/weapon/twin_glaive.png'),
+    ).toBe('warglaive');
+    expect(
+      selectParametricTemplateId('weapon', 'weapon', '/assets/paperdoll/weapon/azzinoth_blade.png'),
+    ).toBe('warglaive');
+  });
+
+  it('cada template renderiza markup sem valores inválidos', () => {
+    for (const template of SVG_TEMPLATES) {
+      const markup = template.render({
+        fill: '#5b6b8c',
+        stroke: '#c7d2fe',
+        glowColor: null,
+        scale: 1,
+        filterId: `test-${template.id}`,
+      });
+      expect(markup.startsWith('<g')).toBe(true);
+      expect(markup.trimEnd().endsWith('</g>')).toBe(true);
+      expect(markup).not.toContain('undefined');
+      expect(markup).not.toContain('NaN');
     }
   });
 });
