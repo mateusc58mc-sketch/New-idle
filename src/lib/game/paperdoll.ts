@@ -26,6 +26,8 @@ import type {
 } from '@/types/game';
 import { PAPERDOLL_LAYER_ORDER } from '@/types/game';
 import { RARITY_GLOW, SLOT_BINDING_MAP, SLOT_LAYER_BINDINGS, artRectFor } from '@/data/paperdoll-layers';
+import { SPRITE_ASSET_MANIFEST } from '@/data/sprite-asset-manifest';
+import { resolveRasterSprite, spriteRasterSlotFor } from './sprite-assets';
 
 export interface ResolvePaperdollInput {
   readonly race: Race;
@@ -37,6 +39,11 @@ export interface ResolvePaperdollInput {
   readonly animation?: PaperdollAnimation;
   /** Raridade máxima equipada — define o glow do conjunto. */
   readonly glowRarity?: Rarity | null;
+  /**
+   * Manifesto de PNGs raster disponíveis. Por omissão usa o gerado em
+   * `src/data/sprite-asset-manifest.ts`; testes/previews podem injectar.
+   */
+  readonly rasterAssets?: ReadonlySet<string>;
 }
 
 export interface ResolvePaperdollResult {
@@ -51,9 +58,25 @@ export interface ResolvePaperdollResult {
  */
 export function resolvePaperdoll(input: ResolvePaperdollInput): ResolvePaperdollResult {
   const { race, appearance, equipment, catalogue } = input;
+  const rasterAssets = input.rasterAssets ?? SPRITE_ASSET_MANIFEST;
 
   const layers: ResolvedLayer[] = [];
   const slots: ResolvedPaperdollSlot[] = [];
+
+  /**
+   * PNG hand-painted da peça, se existir em `/public/assets/sprites/**`.
+   * `null` significa "desenha o template vetorial" — nunca falha.
+   */
+  const rasterFor = (
+    layerKey: PaperdollLayerKey,
+    slot: EquipmentSlot | null,
+    itemId: string,
+    declaredSrc?: string | null,
+  ): string | null => {
+    const rasterSlot = spriteRasterSlotFor(layerKey, slot);
+    if (!rasterSlot) return null;
+    return resolveRasterSprite({ slot: rasterSlot, id: itemId, declaredSrc, available: rasterAssets }).src;
+  };
 
   // 1. Corpo da raça — sempre presente, é a base de tudo.
   const bodyAnchor = race.paperdoll.anchors.body;
@@ -68,6 +91,7 @@ export function resolvePaperdoll(input: ResolvePaperdollInput): ResolvePaperdoll
       order: PAPERDOLL_LAYER_ORDER.indexOf('body'),
       zOffset: 0,
       slot: null,
+      rasterSrc: rasterFor('body', null, race.id, race.paperdoll.bodyLayer.src),
     });
   }
 
@@ -95,6 +119,12 @@ export function resolvePaperdoll(input: ResolvePaperdollInput): ResolvePaperdoll
       order: layerIndex,
       zOffset: binding.zOffset,
       slot: binding.slot,
+      rasterSrc: rasterFor(
+        binding.layer,
+        binding.slot,
+        instance.itemId,
+        definition.paperdoll.asset.src,
+      ),
     });
 
     slots.push({
@@ -132,6 +162,7 @@ export function resolvePaperdoll(input: ResolvePaperdollInput): ResolvePaperdoll
       order: PAPERDOLL_LAYER_ORDER.indexOf(key),
       zOffset: -100, // cosméticos ficam por cima da peça equivalente
       slot: null,
+      rasterSrc: rasterFor(key, null, '', cosmetic.asset.src),
     });
   }
 

@@ -1225,6 +1225,11 @@ export interface ResolvedLayer {
   readonly zOffset: number;
   /** Slot de equipamento que originou a camada (null = corpo/cosmético). */
   readonly slot: EquipmentSlot | null;
+  /**
+   * PNG hand-painted em `/assets/sprites/**` quando o manifesto o confirma.
+   * `null` = a camada desenha o template vetorial (fallback automático).
+   */
+  readonly rasterSrc: string | null;
 }
 
 /** Slot já resolvido — consumido pelo inventário e pelo preview de mercado. */

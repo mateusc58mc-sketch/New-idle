@@ -62,7 +62,9 @@ export function usePaperdoll(options: UsePaperdollOptions): UsePaperdollResult {
 
   const sources = useMemo<readonly string[]>(() => {
     if (!resolved) return [];
-    return resolved.state.layers.map((layer) => layer.asset.src);
+    // Pré-carrega a arte que vai mesmo ser desenhada: PNG raster quando existe,
+    // senão o caminho legado (que também serve de candidato para o sprite-sheet).
+    return resolved.state.layers.map((layer) => layer.rasterSrc ?? layer.asset.src);
   }, [resolved]);
 
   const [loadedCount, setLoadedCount] = useState(0);

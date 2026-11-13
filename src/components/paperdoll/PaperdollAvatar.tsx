@@ -23,10 +23,11 @@
  * e uma faixa com os slots equipados. Quando os PNGs chegarem, cobrem a carta
  * camada a camada — a identidade visual já está pronta.
  */
-import { useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
+import type { CSSProperties } from 'react';
 
 import { RACE_BY_ID } from '@/data/races';
-import { RARITY_COLOR, RARITY_GLOW } from '@/data/paperdoll-layers';
+import { RARITY_COLOR, RARITY_GLOW, artRectFor } from '@/data/paperdoll-layers';
 import { layerStyle } from '@/lib/game/paperdoll';
 import { getParametricSvgForLayer } from '@/lib/sprite-lab/svg-templates';
 import type {
@@ -298,12 +299,28 @@ function LayerImage({
   readonly rarityGlow: string | null;
 }) {
   const [failed, setFailed] = useState(false);
+  const fail = useCallback(() => setFailed(true), []);
   const zIndex = LAYER_Z_INDEX[layer.key] + (layer.zOffset < 0 ? -5 : 0);
   const style = { ...layerStyle(layer, canvasWidth, canvasHeight), zIndex };
   const sheet = layer.asset.sheet;
 
-  // Sem arte física PNG, recorre ao SVG paramétrico do slot (bow, staff,
-  // robe, hood...), já posicionado no rect oficial do canvas 256×256.
+  // 1) PNG hand-painted registado no manifesto → `<image>` no artRect oficial.
+  //    Se o ficheiro desaparecer em runtime, o probe cai no template vetorial.
+  if (layer.rasterSrc && !failed) {
+    return (
+      <RasterLayer
+        layer={layer}
+        rasterSrc={layer.rasterSrc}
+        style={style}
+        instanceId={instanceId}
+        rarityGlow={rarityGlow}
+        onFail={fail}
+      />
+    );
+  }
+
+  // 2) Sem arte física PNG, recorre ao SVG paramétrico do slot (bow, staff,
+  //    robe, hood...), já posicionado no rect oficial do canvas 256×256.
   if (failed) {
     const layerGlow = layer.rarity ? RARITY_COLOR[layer.rarity] : rarityGlow;
     const isBody = layer.key === 'body';
@@ -341,7 +358,7 @@ function LayerImage({
         <img
           alt=""
           aria-hidden
-          onError={() => setFailed(true)}
+          onError={fail}
           src={layer.asset.src}
           style={{ position: 'absolute', width: 0, height: 0, opacity: 0 }}
         />
@@ -357,12 +374,99 @@ function LayerImage({
       draggable={false}
       loading="eager"
       decoding="async"
-      onError={() => setFailed(true)}
+      onError={fail}
       style={{
         ...style,
         objectFit: 'contain',
       }}
     />
+  );
+}
+
+/**
+ * Camada raster hand-painted.
+ *
+ * Desenha um `<image>` SVG dentro do `artRect` oficial do canvas 256×256 — a
+ * MESMA geometria que o corpo e os templates vetoriais usam, por isso o PNG
+ * alinha com tudo o resto sem calibração por raça. O filtro de glow de raridade
+ * é aplicado ao próprio `<image>` (não ao wrapper), para o brilho seguir a
+ * silhueta da arte e não a caixa do rect.
+ *
+ * O probe com `new Image()` não é redundante: o Chrome NÃO dispara `error` em
+ * `<image>` SVG. Sem ele, um manifesto desactualizado deixaria a camada em
+ * branco em vez de cair no template vetorial.
+ */
+function RasterLayer({
+  layer,
+  rasterSrc,
+  style,
+  instanceId,
+  rarityGlow,
+  onFail,
+}: {
+  readonly layer: ResolvedLayer;
+  readonly rasterSrc: string;
+  readonly style: CSSProperties;
+  readonly instanceId: string;
+  readonly rarityGlow: string | null;
+  readonly onFail: () => void;
+}) {
+  const rect = artRectFor(layer.key, layer.slot);
+  const glow = layer.rarity ? (RARITY_GLOW[layer.rarity] ?? rarityGlow) : rarityGlow;
+  const filterId = `rasterGlow-${instanceId}`;
+
+  useEffect(() => {
+    let cancelled = false;
+    const probe = new Image();
+    probe.onerror = () => {
+      if (!cancelled) onFail();
+    };
+    probe.src = rasterSrc;
+    return () => {
+      cancelled = true;
+      probe.onerror = null;
+    };
+  }, [rasterSrc, onFail]);
+
+  return (
+    <div
+      aria-hidden
+      data-layer-kind="raster"
+      data-raster-src={rasterSrc}
+      style={{ ...style, aspectRatio: '1 / 1', imageRendering: 'auto' }}
+    >
+      <svg
+        viewBox={`${rect.x} ${rect.y} ${rect.size} ${rect.size}`}
+        width="100%"
+        height="100%"
+        preserveAspectRatio="xMidYMid meet"
+        style={{ display: 'block', overflow: 'visible' }}
+      >
+        {glow ? (
+          <defs>
+            <filter id={filterId} x="-25%" y="-25%" width="150%" height="150%">
+              <feGaussianBlur stdDeviation="6" result="blur" />
+              <feFlood floodColor={glow} result="color" />
+              <feComposite in="color" in2="blur" operator="in" result="glow" />
+              <feMerge>
+                <feMergeNode in="glow" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+        ) : null}
+        <image
+          href={rasterSrc}
+          x={rect.x}
+          y={rect.y}
+          width={rect.size}
+          height={rect.size}
+          preserveAspectRatio="xMidYMid meet"
+          filter={glow ? `url(#${filterId})` : undefined}
+          onError={onFail}
+        />
+      </svg>
+    </div>
   );
 }
 

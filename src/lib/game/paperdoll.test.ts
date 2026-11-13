@@ -286,4 +286,62 @@ describe('resolvePaperdoll', () => {
     const b = resolvePaperdoll({ race: human, appearance, equipment, catalogue });
     expect(a.state.layers).toEqual(b.state.layers);
   });
+
+  it('usa o PNG raster do manifesto quando existe', () => {
+    const equipment: Record<EquipmentSlot, InventoryItem | null> = {
+      ...emptyEquipment,
+      weapon: instance('item.wpn.iron_sword', 'weapon', 'common'),
+    };
+    const result = resolvePaperdoll({
+      race: human,
+      appearance,
+      equipment,
+      catalogue,
+      rasterAssets: new Set(['/assets/sprites/weapons/iron_sword.png']),
+    });
+    const weapon = result.state.layers.find((layer) => layer.slot === 'weapon');
+    expect(weapon?.rasterSrc).toBe('/assets/sprites/weapons/iron_sword.png');
+  });
+
+  it('sem PNG cai no template vectorial (rasterSrc null)', () => {
+    const equipment: Record<EquipmentSlot, InventoryItem | null> = {
+      ...emptyEquipment,
+      helmet: instance('item.hlm.iron_helm', 'helmet', 'uncommon'),
+    };
+    const result = resolvePaperdoll({ race: human, appearance, equipment, catalogue });
+    const helmet = result.state.layers.find((layer) => layer.slot === 'helmet');
+    expect(helmet?.rasterSrc).toBeNull();
+  });
+
+  it('o corpo usa characters/[raceId].png quando registado', () => {
+    const result = resolvePaperdoll({
+      race: human,
+      appearance,
+      equipment: emptyEquipment,
+      catalogue,
+      rasterAssets: new Set(['/assets/sprites/characters/human.png']),
+    });
+    expect(result.state.layers[0]?.key).toBe('body');
+    expect(result.state.layers[0]?.rasterSrc).toBe('/assets/sprites/characters/human.png');
+  });
+
+  it('capa e acessório permanecem vectoriais na Fase 2', () => {
+    const equipment: Record<EquipmentSlot, InventoryItem | null> = {
+      ...emptyEquipment,
+      cloak: instance('item.clk.traveler_cloak', 'cloak', 'uncommon'),
+      accessory: instance('item.acc.lucky_charm', 'accessory', 'epic'),
+    };
+    const result = resolvePaperdoll({
+      race: human,
+      appearance,
+      equipment,
+      catalogue,
+      rasterAssets: new Set([
+        '/assets/sprites/armor/traveler_cloak.png',
+        '/assets/sprites/armor/lucky_charm.png',
+      ]),
+    });
+    expect(result.state.layers.find((layer) => layer.slot === 'cloak')?.rasterSrc).toBeNull();
+    expect(result.state.layers.find((layer) => layer.slot === 'accessory')?.rasterSrc).toBeNull();
+  });
 });
