@@ -130,6 +130,31 @@ export function hasRasterSprite(
   return typeof path === 'string' && path.length > 0 && available.has(path);
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Fase 3 — Corpos Base das Raças (níveis 1–9, "raça pura")
+ *
+ * Antes da escolha de classe (e sempre que não há armadura equipada), o
+ * avatar é o MANEQUIM da raça: um PNG 256×256 em
+ * `/assets/sprites/characters/[slug].png`. Aqui a ordem é SLUG PRIMEIRO
+ * (`race.human` → `human.png`, depois `race.human.png`) — é o inverso das
+ * armas porque o artista nomeia raças pelo nome curto, nunca pelo prefixo
+ * `race.`. A resolução genérica (`resolveRasterSprite`) continua a aceitar
+ * ambas as formas.
+ * ────────────────────────────────────────────────────────────────────────── */
+
+/** Todos os candidatos de PNG do corpo de uma raça, por prioridade. */
+export function raceBodyAssetCandidates(raceId: string): readonly string[] {
+  const full = sanitizeSegment(raceId);
+  const slug = sanitizeSegment(raceId.split('.').pop() ?? '');
+  const names = slug && slug !== full ? [slug, full] : full ? [full] : [];
+  return names.map((name) => `${SPRITE_ASSET_ROOT}/${SPRITE_SLOT_DIRECTORIES.character}/${name}.png`);
+}
+
+/** Caminho canónico do corpo de uma raça, exista o PNG ou não. */
+export function raceBodyAssetPath(raceId: string): string {
+  return raceBodyAssetCandidates(raceId)[0] ?? `${SPRITE_ASSET_ROOT}/${SPRITE_SLOT_DIRECTORIES.character}/`;
+}
+
 export interface ResolveRasterSpriteInput {
   readonly slot: SpriteRasterSlot;
   /** `itemId` (equipamento) ou `raceId` (corpo). Vazio em cosméticos. */

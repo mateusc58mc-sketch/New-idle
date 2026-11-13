@@ -13,9 +13,12 @@ import { join, relative, sep } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { SPRITE_ASSET_COUNT, SPRITE_ASSET_MANIFEST } from '@/data/sprite-asset-manifest';
+import { RACES } from '@/data/races';
 import {
   SPRITE_ASSET_ROOT,
   hasRasterSprite,
+  raceBodyAssetCandidates,
+  raceBodyAssetPath,
   resolveRasterSprite,
   spriteAssetCandidates,
   spriteAssetPath,
@@ -153,5 +156,42 @@ describe('manifesto gerado', () => {
 
     expect([...SPRITE_ASSET_MANIFEST].sort()).toEqual(onDisk);
     expect(SPRITE_ASSET_COUNT).toBe(SPRITE_ASSET_MANIFEST.size);
+  });
+});
+
+describe('Fase 3 — corpo base das raças (manequins, níveis 1–9)', () => {
+  it('cada raça mapeia para characters/[slug].png com o slug primeiro', () => {
+    for (const race of RACES) {
+      expect(raceBodyAssetPath(race.id)).toBe(`${SPRITE_ASSET_ROOT}/characters/${race.slug}.png`);
+      expect(raceBodyAssetCandidates(race.id)).toEqual([
+        `${SPRITE_ASSET_ROOT}/characters/${race.slug}.png`,
+        `${SPRITE_ASSET_ROOT}/characters/${race.id}.png`,
+      ]);
+    }
+  });
+
+  it('as 9 raças clássicas têm manequim registado no manifesto real', () => {
+    // Falha se um artista apagar um PNG de characters/ — o corpo cairia no
+    // template vetorial em silêncio.
+    for (const race of RACES) {
+      expect(hasRasterSprite(raceBodyAssetPath(race.id))).toBe(true);
+    }
+  });
+
+  it('a resolução genérica do resolvedor encontra o manequim pelo slug', () => {
+    const resolution = resolveRasterSprite({ slot: 'character', id: 'race.orc' });
+    expect(resolution.kind).toBe('raster');
+    expect(resolution.src).toBe(`${SPRITE_ASSET_ROOT}/characters/orc.png`);
+  });
+
+  it('sem o PNG no manifesto, o corpo cai no vectorial (fallback intacto)', () => {
+    const resolution = resolveRasterSprite({
+      slot: 'character',
+      id: 'race.human',
+      available: new Set(),
+    });
+    expect(resolution.kind).toBe('vector');
+    expect(resolution.src).toBeNull();
+    expect(resolution.expectedSrc).toBe(`${SPRITE_ASSET_ROOT}/characters/race.human.png`);
   });
 });

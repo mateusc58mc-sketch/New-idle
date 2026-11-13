@@ -9,8 +9,17 @@
  * `src/lib/sprite-lab/svg-templates.ts` — nunca parte a renderização.
  */
 export const SPRITE_ASSET_MANIFEST: ReadonlySet<string> = new Set<string>([
+  '/assets/sprites/characters/dwarf.png',
+  '/assets/sprites/characters/elf.png',
+  '/assets/sprites/characters/goblin.png',
+  '/assets/sprites/characters/human.png',
+  '/assets/sprites/characters/orc.png',
+  '/assets/sprites/characters/pandaren.png',
+  '/assets/sprites/characters/tauren.png',
+  '/assets/sprites/characters/troll.png',
+  '/assets/sprites/characters/undead.png',
   '/assets/sprites/weapons/iron_sword.png',
 ]);
 
 /** Quantidade de artes raster registadas (útil em diagnóstico). */
-export const SPRITE_ASSET_COUNT = 1;
+export const SPRITE_ASSET_COUNT = 10;

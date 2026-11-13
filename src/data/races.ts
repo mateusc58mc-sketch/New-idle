@@ -30,11 +30,16 @@ const SHARED_ANCHORS: Readonly<Record<keyof typeof PAPERDOLL_ANCHORS, PaperdollA
 /**
  * Constrói o `RacePaperdoll` de uma raça. Todas as raças passam por aqui,
  * logo é estruturalmente impossível dar âncoras diferentes a uma delas.
+ *
+ * Fase 3: o src declarado segue a convenção oficial de raster
+ * (`/assets/sprites/characters/[slug].png`) — é o caminho que o resolvedor
+ * híbrido usa como pista e o `usePaperdoll` pré-carrega. O PNG em falta cai
+ * no template vetorial `hero-body` sem partir nada.
  */
-function buildPaperdoll(bodySrc: string): RacePaperdoll {
+function buildPaperdoll(slug: string): RacePaperdoll {
   return {
     bodyLayer: {
-      src: bodySrc,
+      src: `/assets/sprites/characters/${slug}.png`,
       sheet: {
         frameWidth: PAPERDOLL_TILE_SIZE,
         frameHeight: PAPERDOLL_TILE_SIZE,
@@ -49,8 +54,6 @@ function buildPaperdoll(bodySrc: string): RacePaperdoll {
   };
 }
 
-const base = '/assets/paperdoll/races';
-
 export const RACES: readonly Race[] = [
   /* ---------------------------------------------------------------- 1/9 */
   {
@@ -63,7 +66,7 @@ export const RACES: readonly Race[] = [
       { stat: 'dropBonus', kind: 'flat', value: 2 },
     ],
     attributeBonus: { str: 1, agi: 1, vit: 1, int: 1, dex: 1, luk: 1 },
-    paperdoll: buildPaperdoll(`${base}/human.png`),
+    paperdoll: buildPaperdoll('human'),
     palette: { skin: '#e8c39e', hair: '#4a3728', primary: '#3b82f6', accent: '#93c5fd' },
     unlock: 'default',
   },
@@ -79,7 +82,7 @@ export const RACES: readonly Race[] = [
       { stat: 'def', kind: 'flat', value: 14 },
     ],
     attributeBonus: { vit: 3, str: 1 },
-    paperdoll: buildPaperdoll(`${base}/dwarf.png`),
+    paperdoll: buildPaperdoll('dwarf'),
     palette: { skin: '#d9a87c', hair: '#a16207', primary: '#b45309', accent: '#fbbf24' },
     unlock: 'default',
   },
@@ -95,7 +98,7 @@ export const RACES: readonly Race[] = [
       { stat: 'hit', kind: 'flat', value: 6 },
     ],
     attributeBonus: { agi: 2, dex: 2 },
-    paperdoll: buildPaperdoll(`${base}/elf.png`),
+    paperdoll: buildPaperdoll('elf'),
     palette: { skin: '#f2d9c0', hair: '#e8e8e8', primary: '#10b981', accent: '#6ee7b7' },
     unlock: 'default',
   },
@@ -112,7 +115,7 @@ export const RACES: readonly Race[] = [
       { stat: 'crit', kind: 'flat', value: 3 },
     ],
     attributeBonus: { agi: 2, dex: 2 },
-    paperdoll: buildPaperdoll(`${base}/goblin.png`),
+    paperdoll: buildPaperdoll('goblin'),
     palette: { skin: '#7cb342', hair: '#3e2723', primary: '#65a30d', accent: '#bef264' },
     unlock: 'default',
   },
@@ -129,7 +132,7 @@ export const RACES: readonly Race[] = [
       { stat: 'lowHpAtk', kind: 'percent', value: 25 },
     ],
     attributeBonus: { str: 3, vit: 1 },
-    paperdoll: buildPaperdoll(`${base}/orc.png`),
+    paperdoll: buildPaperdoll('orc'),
     palette: { skin: '#6b8f3a', hair: '#1c1917', primary: '#7f1d1d', accent: '#f97316' },
     unlock: 'default',
   },
@@ -145,7 +148,7 @@ export const RACES: readonly Race[] = [
       { stat: 'def', kind: 'flat', value: 6 },
     ],
     attributeBonus: { vit: 4, str: 1 },
-    paperdoll: buildPaperdoll(`${base}/tauren.png`),
+    paperdoll: buildPaperdoll('tauren'),
     palette: { skin: '#8d6e63', hair: '#4e342e', primary: '#78350f', accent: '#fcd34d' },
     unlock: 'default',
   },
@@ -162,7 +165,7 @@ export const RACES: readonly Race[] = [
       { stat: 'controlResist', kind: 'flat', value: 15 },
     ],
     attributeBonus: { vit: 2, str: 2 },
-    paperdoll: buildPaperdoll(`${base}/pandaren.png`),
+    paperdoll: buildPaperdoll('pandaren'),
     palette: { skin: '#f5f0e1', hair: '#1f2937', primary: '#0f766e', accent: '#5eead4' },
     unlock: 'market',
   },
@@ -178,7 +181,7 @@ export const RACES: readonly Race[] = [
       { stat: 'mdef', kind: 'flat', value: 10 },
     ],
     attributeBonus: { int: 2, luk: 2 },
-    paperdoll: buildPaperdoll(`${base}/undead.png`),
+    paperdoll: buildPaperdoll('undead'),
     palette: { skin: '#9ca3af', hair: '#1e1b4b', primary: '#6d28d9', accent: '#a78bfa' },
     unlock: 'achievement',
   },
@@ -195,7 +198,7 @@ export const RACES: readonly Race[] = [
       { stat: 'buffDuration', kind: 'percent', value: 20 },
     ],
     attributeBonus: { agi: 2, vit: 2 },
-    paperdoll: buildPaperdoll(`${base}/troll.png`),
+    paperdoll: buildPaperdoll('troll'),
     palette: { skin: '#4d7c0f', hair: '#1c1917', primary: '#365314', accent: '#a3e635' },
     unlock: 'market',
   },

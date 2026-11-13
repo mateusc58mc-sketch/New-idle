@@ -325,6 +325,21 @@ describe('resolvePaperdoll', () => {
     expect(result.state.layers[0]?.rasterSrc).toBe('/assets/sprites/characters/human.png');
   });
 
+  it('Fase 3: TODAS as raças resolvem o manequim raster no manifesto real', () => {
+    // Sem injeção de rasterAssets: o manifesto gerado é a fonte de verdade.
+    // Um PNG apagado de characters/ falha aqui, não em produção.
+    for (const race of RACES) {
+      const result = resolvePaperdoll({
+        race,
+        appearance: { ...appearance, raceId: race.id },
+        equipment: emptyEquipment,
+        catalogue,
+      });
+      const body = result.state.layers.find((layer) => layer.key === 'body');
+      expect(body?.rasterSrc, race.id).toBe(`/assets/sprites/characters/${race.slug}.png`);
+    }
+  });
+
   it('capa e acessório permanecem vectoriais na Fase 2', () => {
     const equipment: Record<EquipmentSlot, InventoryItem | null> = {
       ...emptyEquipment,

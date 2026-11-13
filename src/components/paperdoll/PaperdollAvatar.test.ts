@@ -99,9 +99,15 @@ describe('PaperdollAvatar — raster híbrido', () => {
   });
 
   it('sem PNG registado não há <image>: fica o template vectorial', () => {
+    // Fase 3: com rasterAssets vazio o corpo NÃO resolve PNG — mas o src
+    // declarado (`/assets/sprites/characters/human.png`) continua a ser o da
+    // convenção oficial (sheet branch + probe). O que interessa provar em SSR
+    // é que nenhuma camada RasterLayer (`<image>`) é renderizada; o React 19
+    // acrescenta <link rel="preload"> por si só, por isso negamos o caminho
+    // do <image>, não o da string inteira.
     const html = render(new Set());
 
     expect(html).not.toContain('data-layer-kind="raster"');
-    expect(html).not.toContain('/assets/sprites/');
+    expect(html).not.toContain('<image href="/assets/sprites/');
   });
 });

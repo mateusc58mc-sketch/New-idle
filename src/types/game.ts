@@ -164,7 +164,7 @@ export type PaperdollAnimation = 'idle' | 'attack' | 'hit' | 'cast' | 'death';
 
 /** Referência a um asset estático em /public. Nunca URLs absolutas externas. */
 export interface AssetRef {
-  /** Caminho público, ex.: `/assets/paperdoll/races/human.png`. */
+  /** Caminho público, ex.: `/assets/sprites/characters/human.png`. */
   readonly src: string;
   /** Índice de sprite-sheet quando aplicável (null = imagem única). */
   readonly sheet: SpriteSheetMeta | null;
