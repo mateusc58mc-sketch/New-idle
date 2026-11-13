@@ -8,7 +8,7 @@ import { BASE_CLASSES } from '@/data/classes';
 import { RACE_BY_ID } from '@/data/races';
 import { useCombat } from '@/hooks/useCombat';
 import { useSupabaseSync } from '@/hooks/useSupabaseSync';
-import { equipmentFromRow } from '@/lib/game/loadout';
+import { ensureStarterWeapon, equipmentFromRow } from '@/lib/game/loadout';
 import { floorDefinition, isBossWave, wavesForFloor } from '@/lib/game/tower';
 import type {
   BaseClass,
@@ -293,7 +293,12 @@ function createStarterSquad(
       talents: [],
       allocationMode: 'auto' as const,
       skills: ownedSkills,
-      equipment: equipmentFromRow(saved?.equipped_items, savedInventory, ownerId),
+      // Herói sem arma equipada recebe a iron_sword starter — é o que permite
+      // validar o PNG raster na arena sem farmar (Fase 2).
+      equipment: ensureStarterWeapon(
+        equipmentFromRow(saved?.equipped_items, savedInventory, ownerId),
+        saved?.id ?? starter.id,
+      ),
       position: classTemplate.position,
       role: classTemplate.role,
       appearance: {

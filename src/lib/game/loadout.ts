@@ -161,6 +161,50 @@ function entriesOf(equippedItems: unknown): readonly (readonly [string, unknown]
 }
 
 /**
+ * Garante uma arma inicial no loadout — validação visual imediata do raster
+ * (Fase 2 do Master Visual Plan).
+ *
+ * Regras:
+ *  · herói SEM arma equipada recebe `item.wpn.iron_sword` (common) — assim a
+ *    `/game` mostra o PNG hand-painted no primeiro carregamento, sem farm;
+ *  · herói COM arma persistida mantém a dele (o banco manda sobre o starter);
+ *  · nunca lança: item ausente do catálogo devolve o loadout intacto.
+ *
+ * A instância é sintética e efémera (`id: "<itemId>:starter"`): a sync só
+ * grava perfil + inventário, nunca `equipped_items`, por isso não contamina
+ * o banco.
+ */
+export const STARTER_WEAPON_ITEM_ID = 'item.wpn.iron_sword';
+
+export function ensureStarterWeapon(
+  loadout: EquipmentLoadout,
+  ownerId: string,
+  itemId: string = STARTER_WEAPON_ITEM_ID,
+): EquipmentLoadout {
+  if (loadout.weapon) return loadout;
+
+  const definition = resolveDefinition(itemId);
+  if (!definition || definition.slot !== 'weapon') return loadout;
+
+  const instance: InventoryItem = {
+    id: `${definition.id}:starter`,
+    itemId: definition.id,
+    ownerId,
+    rarity: definition.rarity,
+    refineLevel: 0,
+    affixes: [],
+    sockets: [],
+    equippedSlot: 'weapon',
+    equippedBy: ownerId,
+    bound: false,
+    locked: false,
+    obtainedAt: '',
+    droppedAtFloor: null,
+  };
+  return { ...loadout, weapon: instance };
+}
+
+/**
  * `equipped_items` (JSON) + linhas do inventário → `EquipmentLoadout`.
  * Nunca lança; slots inválidos/vazios ficam a `null`.
  */
