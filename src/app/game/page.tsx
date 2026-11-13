@@ -9,7 +9,7 @@ export const metadata: Metadata = {
 
 export default function GamePage() {
   return (
-    <main style={{ minHeight: '100vh', padding: '1px 20px 48px', background: '#07070c' }}>
+    <main style={{ minHeight: '100vh', background: '#07070c' }}>
       <GameArena />
     </main>
   );

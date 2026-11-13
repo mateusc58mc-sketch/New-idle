@@ -201,61 +201,109 @@ function GameCombatSession({
   }, [persistedInventory, combat.loot]);
 
   return (
-    <section style={panelStyle}>
-      <header style={headerStyle}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 22 }}>Ascent Gate · Arena</h1>
-          <p style={{ margin: '6px 0 0', color: '#94a3b8', fontSize: 13 }}>
-            Ouro {Math.max(0, initialGold + combat.rewards.gold).toLocaleString('pt-BR')} · Andar {combat.tower.floor} · Wave {combat.tower.wave}
-            {' · '}Inventário {inventoryCount}
-          </p>
-        </div>
-        <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'right' }} aria-live="polite">
-          {saving ? 'Salvando…' : source === 'remote' ? 'Supabase sincronizado' : 'Salvando neste dispositivo'}
-          {error ? <p style={{ color: '#fca5a5', maxWidth: 290, margin: '5px 0 0' }}>{error}</p> : null}
-        </div>
-      </header>
+    <>
+      <section
+        style={{
+          position: 'relative',
+          height: 'calc(100vh - 64px)',
+          overflow: 'hidden',
+          color: '#e2e8f0',
+        }}
+      >
+        <ArenaView
+          state={combat.state}
+          floorName={floor.name}
+          biome={floor.biome}
+          wave={combat.tower.wave}
+          totalWaves={wavesForFloor(combat.tower.floor)}
+          isBossFloor={combat.tower.isBossFloor}
+          onDrainEvents={combat.drainEvents}
+          equipmentByCharacterId={equipmentByCharacterId}
+        />
 
-      <div style={controlsStyle}>
+        {/* HUD superior — faixa translúcida, não intercepta cliques no campo */}
+        <header
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            zIndex: 100,
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            gap: 16,
+            padding: '12px 20px 18px',
+            pointerEvents: 'none',
+            background: 'linear-gradient(180deg, rgba(2,6,23,.78) 0%, rgba(2,6,23,.35) 62%, transparent 100%)',
+          }}
+        >
+          <div>
+            <h1 style={{ margin: 0, fontSize: 15, letterSpacing: 3, color: '#e2e8f0', textShadow: '0 1px 6px #000' }}>
+              ASCENT GATE
+            </h1>
+            <p
+              style={{
+                margin: '3px 0 0',
+                fontFamily: 'var(--mono, monospace)',
+                fontSize: 12.5,
+                color: '#cbd5e1',
+                textShadow: '0 1px 4px #000',
+              }}
+            >
+              ⚡ {Math.max(0, initialGold + combat.rewards.gold).toLocaleString('pt-BR')} · 🗼 Andar {combat.tower.floor}
+              {' · '}WAVE {combat.tower.wave}/{wavesForFloor(combat.tower.floor)} · 🎒 {inventoryCount}
+            </p>
+          </div>
+          <div style={{ color: '#94a3b8', fontSize: 12, textAlign: 'right', textShadow: '0 1px 4px #000' }} aria-live="polite">
+            {saving ? 'Salvando…' : source === 'remote' ? 'Supabase sincronizado' : 'Salvando neste dispositivo'}
+            {error ? <p style={{ color: '#fca5a5', maxWidth: 290, margin: '5px 0 0' }}>{error}</p> : null}
+          </div>
+        </header>
+
+        {marketplaceOpen ? (
+          <MarketplaceModal
+            gold={Math.max(0, initialGold + combat.rewards.gold)}
+            inventory={persistedInventory}
+            onClose={closeMarketplace}
+            onPurchased={onMarketplacePurchase}
+            userId={userId}
+          />
+        ) : null}
+      </section>
+
+      {/* Barra de controlos — overlay inferior fixo, translúcido estilo jogo */}
+      <div
+        style={{
+          height: 64,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 10,
+          padding: '0 16px',
+          borderTop: '1px solid rgba(148,163,184,.14)',
+          background: 'rgba(2,6,23,.82)',
+        }}
+      >
         <button style={marketButtonStyle} onClick={() => setMarketplaceOpen(true)} type="button">
-          Mercado
+          🛒 Mercado
         </button>
         <button style={buttonStyle} type="button" onClick={combat.toggle}>
-          {combat.running ? 'Pausar combate' : 'Retomar combate'}
+          {combat.running ? '⏸ Pausar' : '▶ Retomar'}
         </button>
         <button style={buttonStyle} type="button" onClick={() => combat.setMode('advance')}>
-          Avançar torre
+          🗼 Avançar torre
         </button>
         <button style={buttonStyle} type="button" onClick={() => combat.setMode('farm')}>
-          Modo farm
+          🌾 Modo farm
         </button>
         {bossWave ? (
-          <button style={buttonStyle} type="button" onClick={combat.challengeBoss}>
-            Desafiar chefe
+          <button style={bossButtonStyle} type="button" onClick={combat.challengeBoss}>
+            👑 Desafiar chefe
           </button>
         ) : null}
       </div>
-
-      <ArenaView
-        state={combat.state}
-        floorName={floor.name}
-        biome={floor.biome}
-        wave={combat.tower.wave}
-        totalWaves={wavesForFloor(combat.tower.floor)}
-        isBossFloor={combat.tower.isBossFloor}
-        onDrainEvents={combat.drainEvents}
-        equipmentByCharacterId={equipmentByCharacterId}
-      />
-      {marketplaceOpen ? (
-        <MarketplaceModal
-          gold={Math.max(0, initialGold + combat.rewards.gold)}
-          inventory={persistedInventory}
-          onClose={closeMarketplace}
-          onPurchased={onMarketplacePurchase}
-          userId={userId}
-        />
-      ) : null}
-    </section>
+    </>
   );
 }
 
@@ -344,26 +392,17 @@ function isBaseClass(value: string | undefined): value is BaseClass {
   return value !== undefined && BASE_CLASSES.some((baseClass) => baseClass.id === value);
 }
 
-const panelStyle = {
-  maxWidth: 1040,
-  margin: '28px auto',
-  padding: 20,
-  border: '1px solid #334155',
-  borderRadius: 16,
-  background: 'rgba(15, 23, 42, 0.86)',
+const buttonStyle = {
+  border: '1px solid rgba(148,163,184,.28)',
+  borderRadius: 99,
+  background: 'rgba(30,41,59,.55)',
   color: '#e2e8f0',
+  padding: '9px 18px',
+  fontSize: 13,
+  cursor: 'pointer',
+  backdropFilter: 'blur(6px)',
+  transition: 'background 160ms ease, border-color 160ms ease',
 };
-
-const headerStyle = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  justifyContent: 'space-between',
-  gap: 18,
-  flexWrap: 'wrap' as const,
-  marginBottom: 16,
-};
-
-const controlsStyle = { display: 'flex', gap: 8, flexWrap: 'wrap' as const, marginBottom: 12 };
-const buttonStyle = { border: '1px solid #475569', borderRadius: 8, background: '#1e293b', color: '#e2e8f0', padding: '8px 12px', cursor: 'pointer' };
-const marketButtonStyle = { ...buttonStyle, borderColor: '#7c3aed', background: '#4c1d95', color: '#f3e8ff' };
+const marketButtonStyle = { ...buttonStyle, borderColor: 'rgba(167,139,250,.5)', background: 'rgba(76,29,149,.5)', color: '#ede9fe' };
+const bossButtonStyle = { ...buttonStyle, borderColor: 'rgba(239,68,68,.55)', background: 'rgba(127,29,29,.55)', color: '#fecaca' };
 const noticeStyle = { maxWidth: 1040, margin: '32px auto', color: '#cbd5e1', textAlign: 'center' as const };
