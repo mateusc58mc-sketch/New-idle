@@ -83,7 +83,13 @@ describe('convenção de caminhos', () => {
 
 describe('resolveRasterSprite', () => {
   it('sem PNG no manifesto devolve fallback vectorial', () => {
-    const resolution = resolveRasterSprite({ slot: 'weapon', id: 'item.wpn.iron_sword' });
+    // Set vazio injectado: o manifesto real cresce à medida que os artistas
+    // largam PNGs — o comportamento de fallback não pode depender disso.
+    const resolution = resolveRasterSprite({
+      slot: 'weapon',
+      id: 'item.wpn.iron_sword',
+      available: new Set(),
+    });
 
     expect(resolution.kind).toBe('vector');
     expect(resolution.src).toBeNull();
