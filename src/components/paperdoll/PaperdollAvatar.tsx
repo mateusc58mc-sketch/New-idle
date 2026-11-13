@@ -22,6 +22,9 @@
  * de RPG: gradiente da classe, silhueta do herói, borda com a cor da raridade
  * e uma faixa com os slots equipados. Quando os PNGs chegarem, cobrem a carta
  * camada a camada — a identidade visual já está pronta.
+ *
+ * Modo mundo (`showFrame={false}`): usado pelo palco de batalha — desenha
+ * APENAS as camadas do paperdoll, sem caixa, selo, vinheta ou faixa de slots.
  */
 import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import type { CSSProperties } from 'react';
@@ -158,11 +161,13 @@ export function PaperdollAvatar({
         ? `linear-gradient(155deg, ${theme.from} 0%, ${theme.via} 62%, ${theme.from} 100%)`
         : 'transparent',
       border: showFrame ? `2px solid ${borderColor}` : undefined,
-      boxShadow: showGlow
-        ? `0 0 0 1px rgba(2,6,23,.7), 0 0 ${Math.round(px * 0.2)}px -2px ${glowColor}, inset 0 0 ${Math.round(px * 0.22)}px rgba(2,6,23,.55)`
-        : showFrame
-          ? 'inset 0 0 0 1px #334155'
-          : 'none',
+      // Modo mundo (showFrame=false): NENHUMA caixa — nem anel de glow, nem
+      // sombra interna. A sombra no chão é responsabilidade do palco.
+      boxShadow: showFrame
+        ? showGlow
+          ? `0 0 0 1px rgba(2,6,23,.7), 0 0 ${Math.round(px * 0.2)}px -2px ${glowColor}, inset 0 0 ${Math.round(px * 0.22)}px rgba(2,6,23,.55)`
+          : 'inset 0 0 0 1px #334155'
+        : 'none',
       transition: 'box-shadow 200ms ease, border-color 200ms ease',
     }),
     [px, showFrame, showGlow, theme.from, theme.via, borderColor, glowColor],
@@ -177,42 +182,44 @@ export function PaperdollAvatar({
       aria-hidden={label ? undefined : true}
       data-animation={state.animation}
     >
-      {/* Vinheta + brilho diagonal: profundidade de carta, não bloco plano. */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: `radial-gradient(circle at 30% 18%, ${theme.ring}33 0%, transparent 46%), linear-gradient(115deg, transparent 38%, rgba(255,255,255,.12) 50%, transparent 62%)`,
-        }}
-      />
-
-      {/* Silhueta estática removida: a camada `body` desenha o herói
-          paramétrico, por isso não há duplicação de silhueta na carta. */}
+      {/* Vinheta + brilho diagonal: profundidade de carta, não bloco plano.
+          Só no modo carta — no palco o herói fica nu sobre o cenário. */}
+      {showFrame ? (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: `radial-gradient(circle at 30% 18%, ${theme.ring}33 0%, transparent 46%), linear-gradient(115deg, transparent 38%, rgba(255,255,255,.12) 50%, transparent 62%)`,
+          }}
+        />
+      ) : null}
 
       {/* Glifo da classe — pequeno selo no canto, não o herói inteiro. */}
-      <div
-        aria-hidden
-        style={{
-          position: 'absolute',
-          top: Math.max(2, Math.round(px * 0.05)),
-          left: Math.max(2, Math.round(px * 0.05)),
-          width: Math.round(px * 0.26),
-          height: Math.round(px * 0.26),
-          borderRadius: '50%',
-          display: 'grid',
-          placeItems: 'center',
-          background: 'rgba(2,6,23,.6)',
-          border: `1px solid ${theme.ring}66`,
-          fontSize: Math.round(px * 0.16),
-          lineHeight: 1,
-          color: theme.ring,
-          textShadow: `0 0 6px ${theme.ring}`,
-          userSelect: 'none',
-        }}
-      >
-        {glyph}
-      </div>
+      {showFrame ? (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            top: Math.max(2, Math.round(px * 0.05)),
+            left: Math.max(2, Math.round(px * 0.05)),
+            width: Math.round(px * 0.26),
+            height: Math.round(px * 0.26),
+            borderRadius: '50%',
+            display: 'grid',
+            placeItems: 'center',
+            background: 'rgba(2,6,23,.6)',
+            border: `1px solid ${theme.ring}66`,
+            fontSize: Math.round(px * 0.16),
+            lineHeight: 1,
+            color: theme.ring,
+            textShadow: `0 0 6px ${theme.ring}`,
+            userSelect: 'none',
+          }}
+        >
+          {glyph}
+        </div>
+      ) : null}
 
       {/* Faixa de equipamento: slots com peça equipada. */}
       {showFrame && visibleSlots.length > 0 ? (

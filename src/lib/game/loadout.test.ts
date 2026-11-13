@@ -11,7 +11,7 @@ import { RACE_BY_ID } from '@/data/races';
 import { resolvePaperdoll } from '@/lib/game/paperdoll';
 import type { Appearance, EquipmentSlot, InventoryItem } from '@/types/game';
 
-import { STARTER_WEAPON_ITEM_ID, ensureStarterWeapon, equipmentFromRow } from './loadout';
+import { STARTER_WEAPON_ITEM_ID, ensureStarterWeapon, equipmentFromRow, equipmentToJson } from './loadout';
 
 function emptyLoadout(): Record<EquipmentSlot, InventoryItem | null> {
   return {
@@ -102,5 +102,52 @@ describe('equipmentFromRow (contratos existentes)', () => {
   it('id cru do banco resolve para o id canónico do catálogo', () => {
     const loadout = equipmentFromRow({ weapon: 'wpn.iron_sword' });
     expect(loadout.weapon?.itemId).toBe('item.wpn.iron_sword');
+  });
+});
+
+describe('equipmentToJson (persistência de squad_characters.equipped_items)', () => {
+  it('round-trip: toJson → fromRow devolve a mesma peça (id/item/rarity/refine)', () => {
+    const weapon: InventoryItem = {
+      id: '00000000-0000-4000-8000-000000000099',
+      itemId: 'item.wpn.iron_sword',
+      ownerId: 'owner-1',
+      rarity: 'uncommon',
+      refineLevel: 3,
+      affixes: [],
+      sockets: [],
+      equippedSlot: 'weapon',
+      equippedBy: 'owner-1',
+      bound: true,
+      locked: false,
+      obtainedAt: '2026-01-01T00:00:00.000Z',
+      droppedAtFloor: 4,
+    };
+    const loadout = { ...emptyLoadout(), weapon };
+
+    const serialized = equipmentToJson(loadout);
+    expect(serialized.weapon).toEqual({
+      id: '00000000-0000-4000-8000-000000000099',
+      item_id: 'item.wpn.iron_sword',
+      rarity: 'uncommon',
+      enhancement_level: 3,
+    });
+
+    const hydrated = equipmentFromRow(serialized, [], 'owner-1');
+    expect(hydrated.weapon?.id).toBe(weapon.id);
+    expect(hydrated.weapon?.itemId).toBe(weapon.itemId);
+    expect(hydrated.weapon?.rarity).toBe('uncommon');
+    expect(hydrated.weapon?.refineLevel).toBe(3);
+  });
+
+  it('slots vazios são omitidos (nunca grava null no banco)', () => {
+    const serialized = equipmentToJson(emptyLoadout());
+    expect(serialized).toEqual({});
+  });
+
+  it('a arma starter serializa e reidrata com o id canónico do catálogo', () => {
+    const loadout = ensureStarterWeapon(emptyLoadout(), 'owner-1');
+    const hydrated = equipmentFromRow(equipmentToJson(loadout), [], 'owner-1');
+    expect(hydrated.weapon?.itemId).toBe(STARTER_WEAPON_ITEM_ID);
+    expect(hydrated.weapon?.rarity).toBe('common');
   });
 });

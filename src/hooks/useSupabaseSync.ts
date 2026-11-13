@@ -17,9 +17,26 @@ export interface PlayerProgressSnapshot {
   readonly inventory: readonly InventoryItem[];
 }
 
+/**
+ * Estado de um membro do esquadrão para gravação em `squad_characters`.
+ * `equippedItems` é o JSON serializado por `equipmentToJson` (loadout.ts).
+ */
+export interface SquadCharacterSaveState {
+  readonly id: string;
+  /** Dono da linha (`auth.users.id`, ou o id local anónimo). */
+  readonly profileId: string;
+  readonly raceId: string;
+  readonly classId: string;
+  readonly level: number;
+  readonly exp: number;
+  readonly equippedItems: Json;
+}
+
 export interface UseSupabaseSyncOptions extends PlayerProgressSnapshot {
   /** Debounce do auto-save em milissegundos. */
   readonly debounceMs?: number;
+  /** Membros do esquadrão — persistidos em `squad_characters`. */
+  readonly squadCharacters?: readonly SquadCharacterSaveState[];
 }
 
 export interface SupabasePlayerState {
@@ -203,6 +220,37 @@ function mergeInventory(
   return [...byId.values()];
 }
 
+/**
+ * Estado de gravação → linha de `squad_characters`. Reaproveita `created_at`
+ * da linha existente para que a ordenação de hidratação permaneça estável.
+ */
+function toSquadCharacterRow(
+  state: SquadCharacterSaveState,
+  existing: SquadCharacterRow | undefined,
+): SquadCharacterRow {
+  const timestamp = new Date().toISOString();
+  return {
+    id: state.id,
+    profile_id: state.profileId,
+    race_id: state.raceId,
+    class_id: state.classId,
+    level: Math.max(1, Math.floor(Number.isFinite(state.level) ? state.level : 1)),
+    exp: Math.max(0, Math.floor(Number.isFinite(state.exp) ? state.exp : 0)),
+    equipped_items: state.equippedItems,
+    created_at: existing?.created_at ?? timestamp,
+    updated_at: timestamp,
+  };
+}
+
+function mergeSquadCharacters(
+  existing: readonly SquadCharacterRow[],
+  incoming: readonly SquadCharacterRow[],
+): SquadCharacterRow[] {
+  const byId = new Map<string, SquadCharacterRow>(existing.map((row) => [row.id, row]));
+  for (const row of incoming) byId.set(row.id, row);
+  return [...byId.values()];
+}
+
 function toProgressRow(snapshot: PlayerProgressSnapshot): ProgressRow {
   return {
     gold: Math.max(0, Math.floor(snapshot.gold)),
@@ -221,6 +269,7 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
     currentFloor,
     currentWave,
     inventory,
+    squadCharacters = [],
     debounceMs = DEFAULT_DEBOUNCE_MS,
   } = options;
   const client = getSupabaseBrowserClient();
@@ -232,6 +281,8 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
   const [source, setSource] = useState<UseSupabaseSyncResult['source']>('empty');
   const [error, setError] = useState<string | null>(null);
   const loadSequence = useRef(0);
+  /** Invalida respostas de saves concorrentes — a última gravação é que manda. */
+  const saveSequence = useRef(0);
   const playerStateRef = useRef(playerState);
   const skipInitialSave = useRef(true);
   playerStateRef.current = playerState;
@@ -239,6 +290,8 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
   const loadForUser = useCallback(
     async (nextUserId: string | null, showLoading = true): Promise<void> => {
       const sequence = ++loadSequence.current;
+      // Um load novo invalida saves em voo do utilizador anterior.
+      saveSequence.current += 1;
       skipInitialSave.current = true;
       setUserId(nextUserId);
       if (showLoading) setLoading(true);
@@ -336,6 +389,7 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
 
     return () => {
       loadSequence.current += 1;
+      saveSequence.current += 1;
       data.subscription.unsubscribe();
     };
   }, [client, loadForUser]);
@@ -359,6 +413,11 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
       playerStateRef.current.inventory,
       rowsForInventory(inventory, userId),
     );
+    const existingSquadById = new Map(
+      playerStateRef.current.squadCharacters.map((row) => [row.id, row]),
+    );
+    const squadRows = squadCharacters.map((state) => toSquadCharacterRow(state, existingSquadById.get(state.id)));
+    const mergedSquad = mergeSquadCharacters(playerStateRef.current.squadCharacters, squadRows);
     const timestamp = new Date().toISOString();
     const nextProfile: ProfileRow | null = userId
       ? {
@@ -373,7 +432,7 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
     const stored = readLocalPlayerState(userId);
     const localSaved = writeLocalPlayerState(userId, {
       profile: nextProfile ?? stored?.profile ?? playerStateRef.current.profile,
-      squadCharacters: playerStateRef.current.squadCharacters,
+      squadCharacters: mergedSquad,
       inventory: mergeInventory(stored?.inventory ?? playerStateRef.current.inventory, incomingRows),
       progress,
     });
@@ -388,8 +447,10 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
 
     const timeout = window.setTimeout(() => {
       void (async (): Promise<void> => {
+        const sequence = ++saveSequence.current;
         setSaving(true);
         try {
+          // 1. Perfil (gold/andar/wave) — linha âncora do jogador.
           const profileWrite = await client
             .from('profiles')
             .upsert(
@@ -405,7 +466,22 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
             .select('*')
             .single();
           if (profileWrite.error) throw profileWrite.error;
+          // Um save mais novo arrancou: abandona este sem tocar em estado.
+          if (sequence !== saveSequence.current) return;
 
+          // 2. Esquadrão (nível/exp/equipamento por herói).
+          let savedSquad = playerStateRef.current.squadCharacters;
+          if (squadRows.length > 0) {
+            const squadWrite = await client
+              .from('squad_characters')
+              .upsert(squadRows, { onConflict: 'id' })
+              .select('*');
+            if (squadWrite.error) throw squadWrite.error;
+            if (sequence !== saveSequence.current) return;
+            savedSquad = mergeSquadCharacters(playerStateRef.current.squadCharacters, squadWrite.data);
+          }
+
+          // 3. Inventário (drops e compras).
           let savedItems = playerStateRef.current.inventory;
           if (incomingRows.length > 0) {
             const inventoryWrite = await client
@@ -413,17 +489,26 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
               .upsert(incomingRows, { onConflict: 'id' })
               .select('*');
             if (inventoryWrite.error) throw inventoryWrite.error;
+            if (sequence !== saveSequence.current) return;
             savedItems = mergeInventory(playerStateRef.current.inventory, inventoryWrite.data);
           }
 
-          setPlayerState((current) => ({ ...current, profile: profileWrite.data, inventory: savedItems }));
+          setPlayerState((current) => ({
+            ...current,
+            profile: profileWrite.data,
+            squadCharacters: savedSquad,
+            inventory: savedItems,
+          }));
           setSource('remote');
           setError(null);
         } catch (saveError: unknown) {
+          if (sequence !== saveSequence.current) return;
+          // Nada se perde: o espelho local já tem o estado; o próximo snapshot
+          // (ou mudança de dados) re-tenta os upserts por cima.
           setSource('local');
           setError(errorMessage(saveError));
         } finally {
-          setSaving(false);
+          if (sequence === saveSequence.current) setSaving(false);
         }
       })();
     }, Math.max(0, debounceMs));
@@ -437,6 +522,7 @@ export function useSupabaseSync(options: UseSupabaseSyncOptions): UseSupabaseSyn
     currentFloor,
     currentWave,
     inventory,
+    squadCharacters,
     debounceMs,
   ]);
 

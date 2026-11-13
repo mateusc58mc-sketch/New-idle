@@ -1,16 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ArenaView } from '@/components/combat/ArenaView';
 import { MarketplaceModal } from '@/components/marketplace/MarketplaceModal';
 import { BASE_CLASSES } from '@/data/classes';
 import { RACE_BY_ID } from '@/data/races';
 import { useCombat } from '@/hooks/useCombat';
-import { useSupabaseSync } from '@/hooks/useSupabaseSync';
-import { ensureStarterWeapon, equipmentFromRow } from '@/lib/game/loadout';
+import { useSupabaseSync, type SquadCharacterSaveState } from '@/hooks/useSupabaseSync';
+import { ensureStarterWeapon, equipmentFromRow, equipmentToJson } from '@/lib/game/loadout';
+import { applyExperience } from '@/lib/game/progression';
 import { floorDefinition, isBossWave, wavesForFloor } from '@/lib/game/tower';
 import type {
+  AttributeBlock,
   BaseClass,
   Character,
   EquipmentLoadout,
@@ -88,6 +90,8 @@ interface ProgressSnapshot {
   readonly currentFloor: number;
   readonly currentWave: number;
   readonly inventory: readonly InventoryItem[];
+  /** XP total acumulado da sessão — distribuído pelos membros do esquadrão. */
+  readonly expTotal: number;
 }
 
 const EMPTY_SNAPSHOT: ProgressSnapshot = {
@@ -95,12 +99,95 @@ const EMPTY_SNAPSHOT: ProgressSnapshot = {
   currentFloor: 1,
   currentWave: 1,
   inventory: [],
+  expTotal: 0,
 };
+
+/**
+ * Progresso persistível de um herói (colunas de `squad_characters` +
+ * atributos derivados dos level-ups da sessão).
+ */
+interface CharacterProgress {
+  readonly level: number;
+  readonly exp: number;
+  readonly attributes: AttributeBlock;
+  readonly unspentPoints: number;
+  readonly talentPoints: number;
+}
+
+function progressOf(character: Character): CharacterProgress {
+  return {
+    level: character.level,
+    exp: character.exp,
+    attributes: character.attributes,
+    unspentPoints: character.unspentPoints,
+    talentPoints: character.talentPoints,
+  };
+}
 
 export function GameArena() {
   const [snapshot, setSnapshot] = useState<ProgressSnapshot>(EMPTY_SNAPSHOT);
   const [hydratedUserId, setHydratedUserId] = useState<string | null | undefined>(undefined);
-  const sync = useSupabaseSync(snapshot);
+  /** Estado do esquadrão para gravação — estável entre renders (chave por valor). */
+  const [squadSave, setSquadSave] = useState<readonly SquadCharacterSaveState[]>([]);
+  const sync = useSupabaseSync({
+    gold: snapshot.gold,
+    currentFloor: snapshot.currentFloor,
+    currentWave: snapshot.currentWave,
+    inventory: snapshot.inventory,
+    squadCharacters: squadSave,
+  });
+
+  /** Base do esquadrão: linhas persistidas + starters, sem progresso de sessão. */
+  const baseSquad = useMemo(
+    () => createStarterSquad(sync.userId ?? LOCAL_PLAYER_ID, sync.squadCharacters, sync.inventory),
+    [sync.userId, sync.squadCharacters, sync.inventory],
+  );
+  const baseSquadRef = useRef(baseSquad);
+  baseSquadRef.current = baseSquad;
+
+  /**
+   * Progresso de sessão por herói — XP dos waves aplicado via `applyExperience`
+   * (modo `auto` distribui os pontos de atributo pelo preset da classe). É o
+   * delta sobre o esquadrão base, por isso sobrevive a re-saves do Supabase.
+   */
+  const [overlay, setOverlay] = useState<Record<Uuid, CharacterProgress>>({});
+  const appliedExpRef = useRef(0);
+
+  const squad = useMemo(() => {
+    const hasOverlay = Object.keys(overlay).length > 0;
+    if (!hasOverlay) return baseSquad;
+    const [first, second, third, fourth] = baseSquad.members;
+    if (!first || !second || !third || !fourth) return baseSquad;
+    const withProgress = (member: Character): Character => {
+      const progress = overlay[member.id];
+      return progress ? { ...member, ...progress } : member;
+    };
+    return {
+      ...baseSquad,
+      members: [withProgress(first), withProgress(second), withProgress(third), withProgress(fourth)] as const,
+    } satisfies Squad;
+  }, [baseSquad, overlay]);
+
+  /** Payload do esquadrão para gravação — estável entre renders (chave por valor). */
+  const squadSavePayload = useMemo<readonly SquadCharacterSaveState[]>(
+    () =>
+      squad.members.map((member) => ({
+        id: member.id,
+        profileId: member.ownerId,
+        raceId: member.raceId,
+        classId: member.baseClass,
+        level: member.level,
+        exp: member.exp,
+        equippedItems: equipmentToJson(member.equipment),
+      })),
+    [squad],
+  );
+  const squadSaveKey = useMemo(() => JSON.stringify(squadSavePayload), [squadSavePayload]);
+  useEffect(() => {
+    // Compara por valor: um re-save do Supabase rehidrata o squad base com os
+    // mesmos números e NÃO pode disparar um novo ciclo de gravação.
+    setSquadSave((previous) => (JSON.stringify(previous) === squadSaveKey ? previous : squadSavePayload));
+  }, [squadSaveKey, squadSavePayload]);
 
   useEffect(() => {
     if (sync.loading || hydratedUserId === sync.userId) return;
@@ -109,15 +196,52 @@ export function GameArena() {
       currentFloor: sync.progress.currentFloor,
       currentWave: sync.progress.currentWave,
       inventory: [],
+      expTotal: 0,
     });
+    // Conta nova: o progresso de sessão não se arrasta entre utilizadores.
+    setOverlay({});
+    appliedExpRef.current = 0;
     setHydratedUserId(sync.userId);
   }, [sync.loading, sync.userId, sync.progress.gold, sync.progress.currentFloor, sync.progress.currentWave, hydratedUserId]);
 
-  const squad = useMemo(
-    () => createStarterSquad(sync.userId ?? LOCAL_PLAYER_ID, sync.squadCharacters, sync.inventory),
-    [sync.userId, sync.squadCharacters, sync.inventory],
-  );
-  const onProgressChange = useCallback((next: ProgressSnapshot): void => setSnapshot(next), []);
+  /**
+   * Consome o snapshot do combate: aplica o XP ganho aos heróis (equalitário,
+   * com o resto distribuído aos primeiros membros) e publica os números para
+   * o auto-save.
+   */
+  const onProgressChange = useCallback((next: ProgressSnapshot): void => {
+    const delta = next.expTotal - appliedExpRef.current;
+    if (delta < 0) {
+      // Sessão reiniciada (wipe/restart): os rewards voltaram a zero.
+      appliedExpRef.current = next.expTotal;
+    } else if (delta > 0) {
+      appliedExpRef.current = next.expTotal;
+      const members = baseSquadRef.current.members;
+      const baseShare = Math.floor(delta / members.length);
+      const bonusMembers = delta % members.length;
+      setOverlay((previous) => {
+        const merged: Record<Uuid, CharacterProgress> = { ...previous };
+        members.forEach((member, index) => {
+          const share = baseShare + (index < bonusMembers ? 1 : 0);
+          if (share <= 0) return;
+          const outcome = applyExperience({
+            character: { ...member, ...(previous[member.id] ?? progressOf(member)) },
+            gainedExp: share,
+          });
+          merged[member.id] = {
+            level: outcome.level,
+            exp: outcome.exp,
+            attributes: outcome.attributes,
+            unspentPoints: outcome.unspentPoints,
+            talentPoints: outcome.talentPoints,
+          };
+        });
+        return merged;
+      });
+    }
+    setSnapshot(next);
+  }, []);
+
   const onMarketplacePurchase = useCallback(async (gold: number): Promise<void> => {
     setSnapshot((current) => ({ ...current, gold }));
     await sync.reload();
@@ -191,8 +315,9 @@ function GameCombatSession({
       currentFloor: combat.tower.floor,
       currentWave: combat.tower.wave,
       inventory: combat.loot,
+      expTotal: combat.rewards.exp,
     });
-  }, [initialGold, combat.rewards.gold, combat.tower.floor, combat.tower.wave, combat.loot, onProgressChange]);
+  }, [initialGold, combat.rewards.gold, combat.rewards.exp, combat.tower.floor, combat.tower.wave, combat.loot, onProgressChange]);
 
   const inventoryCount = useMemo(() => {
     const ids = new Set<string>(persistedInventory.map((item) => item.id));
@@ -312,7 +437,12 @@ function createStarterSquad(
   savedCharacters: ReturnType<typeof useSupabaseSync>['squadCharacters'],
   savedInventory: ReturnType<typeof useSupabaseSync>['inventory'] = [],
 ): Squad {
-  const rows = [...savedCharacters].sort((left, right) => left.created_at.localeCompare(right.created_at));
+  // Ordenação determinística: created_at + id como tiebreaker (linhas criadas
+  // no mesmo auto-share partilham o timestamp, e o casamento com os starters
+  // é posicional — não pode depender da ordem de SELECT do banco).
+  const rows = [...savedCharacters].sort(
+    (left, right) => left.created_at.localeCompare(right.created_at) || left.id.localeCompare(right.id),
+  );
   const buildCharacter = (starter: StarterHero, index: number): Character => {
     const saved = rows[index];
     const baseClass = isBaseClass(saved?.class_id) ? saved.class_id : starter.baseClass;

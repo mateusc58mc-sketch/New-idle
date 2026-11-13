@@ -509,7 +509,6 @@ function FieldHero({
         mp={hero.maxMp > 0 ? percent(hero.mp, hero.maxMp) : 0}
         turn={turnPercent(hero.attackCooldownSec, hero.stats.attackSpeed)}
         alive={alive}
-        accent={rarityColor ?? undefined}
         glow={rarityGlow ?? undefined}
         focused={focused}
         effects={hero.effects.slice(0, 3).map((effect) => effect.kind)}
@@ -543,7 +542,8 @@ function FieldHero({
                   label={hero.name}
                 />
               ) : (
-                <div style={{ width: 160, height: 160, borderRadius: 14, background: '#11182755' }} />
+                // Placeholder sem card: espaço do avatar enquanto a raça resolve.
+                <div style={{ width: 160, height: 160 }} aria-hidden />
               )}
             </div>
           </FlashLayer>
@@ -597,7 +597,6 @@ function FieldEnemy({
         mp={0}
         turn={isBoss ? turnPercent(enemy.attackCooldownSec, enemy.stats.attackSpeed) : 0}
         alive={alive}
-        accent="#ef4444"
         glow={isBoss ? 'rgba(239,68,68,.45)' : undefined}
         focused={false}
         effects={[]}
@@ -640,7 +639,12 @@ function FieldEnemy({
   );
 }
 
-/** Placa flutuante sobre a unidade: nome, barras de HP/MP e efeitos. */
+/** Placa flutuante sobre a unidade: nome, barras de HP/MP e efeitos.
+ *
+ * SEM card: nenhum fundo, borda ou sombra de caixa — apenas texto com
+ * text-shadow (legível sobre qualquer bioma) e barras translúcidas. A unidade
+ * em si é o corpo no cenário; a placa é só a assinatura dela no ar.
+ */
 function Nameplate({
   name,
   level,
@@ -652,7 +656,6 @@ function Nameplate({
   mp,
   turn,
   alive,
-  accent,
   glow,
   focused,
   effects,
@@ -670,7 +673,6 @@ function Nameplate({
   readonly mp: number;
   readonly turn: number;
   readonly alive: boolean;
-  readonly accent?: string | undefined;
   readonly glow?: string | undefined;
   readonly focused: boolean;
   readonly effects: readonly string[];
@@ -678,30 +680,24 @@ function Nameplate({
   readonly enemy?: boolean;
   readonly reducedMotion: boolean;
 }) {
+  const textShadow = '0 1px 3px rgba(0,0,0,.95), 0 0 8px rgba(2,6,23,.85)';
+
   return (
     <div
       style={{
         width: enemy ? 128 : 140,
         marginBottom: 6,
-        padding: '4px 7px 5px',
-        borderRadius: 8,
-        background: 'rgba(2,6,23,.66)',
-        border: `1px solid ${focused ? 'rgba(56,189,248,.55)' : (accent ?? 'rgba(148,163,184,.18)')}`,
-        boxShadow: focused
-          ? '0 0 14px -2px rgba(56,189,248,.6)'
-          : glow
-            ? `0 0 12px -3px ${glow}`
-            : '0 2px 8px rgba(2,6,23,.5)',
         textAlign: 'center',
-        transition: 'border-color 220ms ease, box-shadow 220ms ease',
-        opacity: alive ? 1 : 0.5,
+        opacity: alive ? 1 : 0.45,
+        transition: 'opacity 300ms ease',
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: 5, fontSize: 11 }}>
         <span
           style={{
             fontWeight: 700,
-            color: focused ? '#7dd3fc' : '#e2e8f0',
+            color: focused ? '#7dd3fc' : '#f1f5f9',
+            textShadow: glow ? `${textShadow}, 0 0 10px ${glow}` : textShadow,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -710,7 +706,9 @@ function Nameplate({
         >
           {name}
         </span>
-        <span style={{ fontFamily: 'var(--mono)', color: '#64748b', fontSize: 9.5 }}>Lv.{level}</span>
+        <span style={{ fontFamily: 'var(--mono)', color: '#cbd5e1', fontSize: 9.5, textShadow }}>
+          Lv.{level}
+        </span>
       </div>
       <div
         style={{
@@ -718,6 +716,7 @@ function Nameplate({
           letterSpacing: 0.8,
           textTransform: 'uppercase',
           color: tagColor,
+          textShadow,
           margin: '1px 0 3px',
           display: 'flex',
           justifyContent: 'center',
@@ -747,17 +746,15 @@ function Nameplate({
         <Bar value={turn} color="linear-gradient(90deg,#b45309,#fbbf24,#fde68a)" height={2} title="Auto-ataque" />
       ) : null}
       {effects.length > 0 || skillReady.length > 0 ? (
-        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 3, marginTop: 3 }}>
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 4, marginTop: 3 }}>
           {effects.map((effect, index) => (
             <span
               key={`${effect}-${index}`}
               style={{
                 fontFamily: 'var(--mono)',
                 fontSize: 8,
-                padding: '0 4px',
-                borderRadius: 4,
-                background: '#111827',
-                border: '1px solid #1e293b',
+                letterSpacing: 0.5,
+                textShadow,
                 color: effect === 'dot' ? '#f87171' : '#4ade80',
               }}
             >
@@ -922,10 +919,10 @@ function Bar({
       style={{
         height,
         borderRadius: 99,
-        background: '#0f172a',
+        background: 'rgba(2,6,23,.55)',
         overflow: 'hidden',
         marginTop: 2,
-        boxShadow: 'inset 0 1px 2px rgba(0,0,0,.65)',
+        boxShadow: 'inset 0 1px 2px rgba(0,0,0,.5)',
       }}
     >
       <div

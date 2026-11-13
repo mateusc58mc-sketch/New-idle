@@ -9,6 +9,10 @@
  *   · `{ weapon: { item_id, rarity, ... } }`      → instância completa;
  *   · `[{ slot: 'weapon', item_id: ... }]`        → forma em lista.
  *
+ * `equipmentToJson` é o inverso: serializa o loadout para o formato de
+ * objecto que o banco guarda em `squad_characters.equipped_items`. O par
+ * (from → to) é testado como round-trip em `loadout.test.ts`.
+ *
  * Qualquer entrada inválida é ignorada — o avatar simplesmente aparece sem a
  * peça. Nada aqui lança: é o mesmo contrato de `resolvePaperdoll`.
  */
@@ -170,9 +174,10 @@ function entriesOf(equippedItems: unknown): readonly (readonly [string, unknown]
  *  · herói COM arma persistida mantém a dele (o banco manda sobre o starter);
  *  · nunca lança: item ausente do catálogo devolve o loadout intacto.
  *
- * A instância é sintética e efémera (`id: "<itemId>:starter"`): a sync só
- * grava perfil + inventário, nunca `equipped_items`, por isso não contamina
- * o banco.
+ * A instância é sintética (`id: "<itemId>:starter"`). A sync PERSISTE
+ * `equipped_items`, logo a arma starter sobrevive à sessão no primeiro
+ * auto-save. O injection continua a ser fallback de hidratação: garante arma
+ * mesmo quando o banco falha ou está indisponível.
  */
 export const STARTER_WEAPON_ITEM_ID = 'item.wpn.iron_sword';
 
@@ -233,4 +238,32 @@ export function equipmentFromRow(
   }
 
   return loadout;
+}
+
+/**
+ * Inverso de `equipmentFromRow`: serializa um `EquipmentLoadout` no formato
+ * de objecto gravado em `squad_characters.equipped_items`.
+ *
+ * Só entram os campos que a leitura de volta consome (`id`, `item_id`,
+ * `rarity`, `enhancement_level`) — o resto do `InventoryItem` é derivável do
+ * catálogo. Slots vazios são omitidos. Nunca lança; valores estranhos são
+ * normalizados (`refineLevel` truncado ≥ 0).
+ */
+export function equipmentToJson(
+  loadout: EquipmentLoadout,
+): Record<string, { readonly id: string; readonly item_id: string; readonly rarity: string; readonly enhancement_level: number }> {
+  const out: Record<string, { readonly id: string; readonly item_id: string; readonly rarity: string; readonly enhancement_level: number }> = {};
+
+  for (const slot of EQUIPMENT_SLOTS) {
+    const item = loadout[slot];
+    if (!item || !item.itemId) continue;
+    out[slot] = {
+      id: item.id,
+      item_id: item.itemId,
+      rarity: item.rarity,
+      enhancement_level: Math.max(0, Math.trunc(item.refineLevel)),
+    };
+  }
+
+  return out;
 }
