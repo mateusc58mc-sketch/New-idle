@@ -32,9 +32,9 @@ const COLOR: Readonly<Record<FloatingNumber['kind'], string>> = {
 
 const FONT_SIZE: Readonly<Record<FloatingNumber['kind'], number>> = {
   damage: 15,
-  crit: 21,
+  crit: 25,
   miss: 12,
-  heal: 15,
+  heal: 16,
   shield: 13,
   death: 18,
   skill: 12,
@@ -71,17 +71,17 @@ export function FloatingCombatText({ floats, positions, reducedMotion = false }:
               top: origin.y,
               transform: 'translate(-50%, -50%)',
               fontFamily: 'var(--mono, ui-monospace, monospace)',
-              fontWeight: isCrit ? 800 : 700,
+              fontWeight: isCrit ? 900 : 700,
               fontSize: FONT_SIZE[float.kind],
               color: COLOR[float.kind],
               textShadow: isCrit
-                ? '0 0 8px rgba(251,191,36,.9), 0 1px 3px #000'
+                ? '0 0 3px rgba(255,255,255,.9), 0 0 12px rgba(251,191,36,.95), 0 2px 5px #000'
                 : '0 1px 3px #000, 0 0 4px rgba(0,0,0,.6)',
               letterSpacing: isCrit ? '0.5px' : '0.2px',
               whiteSpace: 'nowrap',
               animation: reducedMotion
                 ? 'none'
-                : `aetheria-float ${float.durationMs}ms cubic-bezier(.16,.84,.44,1) forwards`,
+                : `aetheria-float${isCrit ? '-crit' : ''} ${float.durationMs}ms cubic-bezier(.16,.84,.44,1) forwards`,
               opacity: reducedMotion ? 0.9 : undefined,
               willChange: 'transform, opacity',
             }}
@@ -100,6 +100,13 @@ export const FLOATING_TEXT_KEYFRAMES = `
   0%   { opacity: 0; transform: translate(-50%, -40%) scale(0.7); }
   18%  { opacity: 1; transform: translate(-50%, -58%) scale(1.08); }
   100% { opacity: 0; transform: translate(-50%, -120%) scale(0.94); }
+}
+/* Crítico: pop mais agressivo — escala maior e flash branco no impacto. */
+@keyframes aetheria-float-crit {
+  0%   { opacity: 0; transform: translate(-50%, -40%) scale(0.5); }
+  14%  { opacity: 1; transform: translate(-50%, -60%) scale(1.38); }
+  26%  { opacity: 1; transform: translate(-50%, -66%) scale(1.18); }
+  100% { opacity: 0; transform: translate(-50%, -128%) scale(1.04); }
 }
 @keyframes aetheria-wave-flash {
   0%   { opacity: 0; }

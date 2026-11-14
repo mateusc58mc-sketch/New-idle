@@ -19,6 +19,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { FloatingCombatText, FLOATING_TEXT_KEYFRAMES } from '@/components/combat/FloatingCombatText';
+import { HeroSkillBar } from '@/components/combat/HeroSkillBar';
 import { PaperdollAvatar } from '@/components/paperdoll/PaperdollAvatar';
 import { useFloatingText } from '@/hooks/useFloatingText';
 import { highestRarity, resolvePaperdoll } from '@/lib/game/paperdoll';
@@ -153,6 +154,8 @@ export function ArenaView({
   const [positions, setPositions] = useState<Record<Uuid, { x: number; y: number }>>({});
   const [lunges, setLunges] = useState<Readonly<Record<Uuid, number>>>({});
   const [hits, setHits] = useState<Readonly<Record<Uuid, number>>>({});
+  /** Última conjuração por skillId — acende o flash do slot na Skill Bar. */
+  const [casts, setCasts] = useState<Readonly<Record<string, number>>>({});
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [transition, setTransition] = useState<{ kind: 'wave' | 'floor'; label: string; at: number } | null>(null);
   const previousWaveRef = useRef<number>(wave);
@@ -181,6 +184,17 @@ export function ArenaView({
       for (const event of events) {
         if ((event.type === 'damage' && !event.isMiss) || event.type === 'shield') {
           next[event.targetId] = now;
+          changed = true;
+        }
+      }
+      return changed ? next : previous;
+    });
+    setCasts((previous) => {
+      let changed = false;
+      const next = { ...previous };
+      for (const event of events) {
+        if (event.type === 'skill_cast') {
+          next[event.skillId] = now;
           changed = true;
         }
       }
@@ -325,6 +339,22 @@ export function ArenaView({
           />
         ))}
 
+        {/* HUD inferior — Skill Bar estilo Ulala: skills dos 4 heróis. */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: 12,
+            display: 'flex',
+            justifyContent: 'center',
+            zIndex: 80,
+            pointerEvents: 'none',
+          }}
+        >
+          <HeroSkillBar heroes={heroes} castStamps={casts} reducedMotion={reducedMotion} />
+        </div>
+
         <div style={{ position: 'absolute', inset: 0, zIndex: 85, pointerEvents: 'none' }}>
           <FloatingCombatText floats={floats} positions={positions} reducedMotion={reducedMotion} />
         </div>
@@ -355,8 +385,44 @@ function BattlefieldBackdrop({
     }));
   }, []);
 
+  /** Pedras do piso — posições/tamanhos determinísticos (i*const % range). */
+  const stones = useMemo(
+    () =>
+      Array.from({ length: 9 }, (_, i) => ({
+        left: 4 + ((i * 37 + 11) % 92),
+        bottom: 1 + ((i * 17) % 24),
+        width: 12 + ((i * 13) % 14),
+        height: 5 + ((i * 7) % 5),
+        opacity: 0.35 + ((i * 11) % 30) / 100,
+      })),
+    [],
+  );
+  /** Tufos de grama — vendem a profundidade junto aos pés das unidades. */
+  const tufts = useMemo(
+    () =>
+      Array.from({ length: 16 }, (_, i) => ({
+        left: 2 + ((i * 23 + 5) % 96),
+        bottom: 0.5 + ((i * 13) % 26),
+        height: 5 + ((i * 5) % 6),
+        tilt: ((i * 29) % 14) - 7,
+        opacity: 0.4 + ((i * 7) % 25) / 100,
+      })),
+    [],
+  );
+
   return (
     <div aria-hidden style={{ position: 'absolute', inset: 0, pointerEvents: 'none', zIndex: 0 }}>
+      {/* Neblina atmosférica — banda de luz baixa na altura do horizonte */}
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          top: '46%',
+          height: '22%',
+          background: `linear-gradient(180deg, transparent 0%, ${withAlpha(palette.accent, 0.07)} 55%, transparent 100%)`,
+        }}
+      />
       {/* Lua / fonte de luz do bioma */}
       <div
         style={{
@@ -370,20 +436,46 @@ function BattlefieldBackdrop({
           filter: 'blur(2px)',
         }}
       />
-      {/* Silhuetas distantes (duas camadas de "montanhas") */}
+      {/* Camada 1 — cordilheira distante (mais clara, quase no céu) */}
       <div
         style={{
           position: 'absolute',
-          bottom: '24%',
+          bottom: '26%',
           left: '-6%',
           right: '-6%',
-          height: '30%',
-          background: `radial-gradient(60% 100% at 18% 100%, ${withAlpha(palette.ground, 0.9)} 0%, transparent 70%),
-            radial-gradient(52% 100% at 62% 100%, ${withAlpha(palette.ground, 0.75)} 0%, transparent 68%),
-            radial-gradient(40% 100% at 92% 100%, ${withAlpha(palette.sky, 0.9)} 0%, transparent 66%)`,
+          height: '26%',
+          background: `radial-gradient(58% 100% at 14% 100%, ${withAlpha(palette.sky, 0.75)} 0%, transparent 70%),
+            radial-gradient(50% 100% at 58% 100%, ${withAlpha(palette.sky, 0.55)} 0%, transparent 66%),
+            radial-gradient(42% 100% at 94% 100%, ${withAlpha(palette.sky, 0.7)} 0%, transparent 64%)`,
         }}
       />
-      {/* Chão — faixa de combate com luz do bioma no horizonte */}
+      {/* Camada 2 — colinas médias (mais escuras, sobrepõem a distante) */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '19%',
+          left: '-4%',
+          right: '-4%',
+          height: '17%',
+          background: `radial-gradient(46% 100% at 30% 100%, ${withAlpha(palette.ground, 0.85)} 0%, transparent 70%),
+            radial-gradient(40% 100% at 78% 100%, ${withAlpha(palette.ground, 0.7)} 0%, transparent 66%)`,
+        }}
+      />
+      {/* Camada 3 — silhuetas próximas (quase pretas: árvores/rochas na borda) */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '14.5%',
+          left: '-2%',
+          right: '-2%',
+          height: '10%',
+          background: `radial-gradient(18% 100% at 6% 100%, ${withAlpha('#020617', 0.9)} 0%, transparent 72%),
+            radial-gradient(14% 100% at 36% 100%, ${withAlpha('#020617', 0.85)} 0%, transparent 70%),
+            radial-gradient(16% 100% at 68% 100%, ${withAlpha('#020617', 0.88)} 0%, transparent 70%),
+            radial-gradient(13% 100% at 96% 100%, ${withAlpha('#020617', 0.9)} 0%, transparent 72%)`,
+        }}
+      />
+      {/* Chão — gradiente base com luz do bioma a morrer no horizonte */}
       <div
         style={{
           position: 'absolute',
@@ -394,6 +486,71 @@ function BattlefieldBackdrop({
           background: `linear-gradient(180deg, transparent 0%, ${withAlpha(palette.ground, 0.5)} 22%, ${withAlpha('#020617', 0.92)} 100%)`,
         }}
       />
+      {/* Textura do piso — bandas horizontais (grama) ficando densas ao fundo,
+          como se a câmara visse o chão em leve perspectiva */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: '30%',
+          opacity: 0.55,
+          background: `repeating-linear-gradient(180deg,
+            rgba(255,255,255,.045) 0px, rgba(255,255,255,.045) 1px,
+            transparent 1px, transparent 5px)`,
+          maskImage: 'linear-gradient(180deg, transparent 0%, #000 34%, #000 100%)',
+          WebkitMaskImage: 'linear-gradient(180deg, transparent 0%, #000 34%, #000 100%)',
+        }}
+      />
+      {/* Poça de luz sob o centro — onde o combate acontece */}
+      <div
+        style={{
+          position: 'absolute',
+          bottom: '2%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: '46%',
+          height: '14%',
+          borderRadius: '50%',
+          background: `radial-gradient(ellipse, ${withAlpha(palette.accent, 0.12)} 0%, transparent 68%)`,
+        }}
+      />
+      {/* Pedras no piso — sombreadas, com brilho superior */}
+      {stones.map((stone, index) => (
+        <div
+          key={`stone-${index}`}
+          style={{
+            position: 'absolute',
+            left: `${stone.left}%`,
+            bottom: `${stone.bottom}%`,
+            width: stone.width,
+            height: stone.height,
+            borderRadius: '50%',
+            opacity: stone.opacity,
+            background: 'linear-gradient(180deg, rgba(148,163,184,.4) 0%, rgba(2,6,23,.9) 70%)',
+            boxShadow: '0 1px 2px rgba(0,0,0,.6)',
+          }}
+        />
+      ))}
+      {/* Tufos de grama — levemente inclinados, cor do bioma escurecida */}
+      {tufts.map((tuft, index) => (
+        <div
+          key={`tuft-${index}`}
+          style={{
+            position: 'absolute',
+            left: `${tuft.left}%`,
+            bottom: `${tuft.bottom}%`,
+            width: 2.5,
+            height: tuft.height,
+            borderRadius: 2,
+            opacity: tuft.opacity,
+            background: `linear-gradient(180deg, ${withAlpha(palette.accent, 0.55)} 0%, ${withAlpha(palette.ground, 0.9)} 100%)`,
+            transform: `rotate(${tuft.tilt}deg)`,
+            transformOrigin: 'bottom center',
+          }}
+        />
+      ))}
       <div
         style={{
           position: 'absolute',
@@ -641,9 +798,10 @@ function FieldEnemy({
 
 /** Placa flutuante sobre a unidade: nome, barras de HP/MP e efeitos.
  *
- * SEM card: nenhum fundo, borda ou sombra de caixa — apenas texto com
- * text-shadow (legível sobre qualquer bioma) e barras translúcidas. A unidade
- * em si é o corpo no cenário; a placa é só a assinatura dela no ar.
+ * Estilo MMO clássico (Ragnarök Mobile / WoW nameplate): nenhuma caixa de
+ * fundo — apenas a assinatura textual da unidade e barras de HP/MP com
+ * MOLDE METÁLICO escuro, gradiente marcante e gloss de topo. A barra de HP é
+ * vermelha clássica em todas as unidades; a de mana, azul.
  */
 function Nameplate({
   name,
@@ -685,29 +843,46 @@ function Nameplate({
   return (
     <div
       style={{
-        width: enemy ? 128 : 140,
-        marginBottom: 6,
+        width: enemy ? 136 : 150,
+        marginBottom: 7,
         textAlign: 'center',
         opacity: alive ? 1 : 0.45,
         transition: 'opacity 300ms ease',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'baseline', gap: 5, fontSize: 11 }}>
+      {/* Nome + nível — tipografia robusta com badge metálico de nível */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 5 }}>
         <span
           style={{
-            fontWeight: 700,
-            color: focused ? '#7dd3fc' : '#f1f5f9',
+            fontWeight: 800,
+            fontSize: 12,
+            letterSpacing: 0.4,
+            color: focused ? '#7dd3fc' : enemy ? '#fecaca' : '#f8fafc',
             textShadow: glow ? `${textShadow}, 0 0 10px ${glow}` : textShadow,
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
-            maxWidth: 92,
+            maxWidth: 96,
           }}
         >
           {name}
         </span>
-        <span style={{ fontFamily: 'var(--mono)', color: '#cbd5e1', fontSize: 9.5, textShadow }}>
-          Lv.{level}
+        <span
+          style={{
+            fontFamily: 'var(--mono, monospace)',
+            fontSize: 9,
+            fontWeight: 700,
+            lineHeight: 1,
+            padding: '2px 5px',
+            borderRadius: 99,
+            color: '#e2e8f0',
+            background: 'linear-gradient(180deg, #334155 0%, #0f172a 100%)',
+            border: '1px solid rgba(148,163,184,.5)',
+            boxShadow: 'inset 0 1px 0 rgba(255,255,255,.14), 0 1px 2px rgba(0,0,0,.5)',
+            flexShrink: 0,
+          }}
+        >
+          {level}
         </span>
       </div>
       <div
@@ -715,9 +890,10 @@ function Nameplate({
           fontSize: 8.5,
           letterSpacing: 0.8,
           textTransform: 'uppercase',
+          fontWeight: 600,
           color: tagColor,
           textShadow,
-          margin: '1px 0 3px',
+          margin: '2px 0 3px',
           display: 'flex',
           justifyContent: 'center',
           gap: 4,
@@ -739,11 +915,39 @@ function Nameplate({
           </span>
         ) : null}
       </div>
-      <Bar value={hp} color="linear-gradient(90deg,#15803d,#22c55e,#86efac)" glow="#22c55e" height={6} title={hpTitle} />
-      {shield > 0 ? <Bar value={shield} color="linear-gradient(90deg,#0369a1,#38bdf8,#bae6fd)" glow="#38bdf8" height={3} /> : null}
-      {mp > 0 ? <Bar value={mp} color="linear-gradient(90deg,#1d4ed8,#3b82f6,#93c5fd)" height={3} /> : null}
+      {/* HP — vermelho clássico, moldura metálica */}
+      <StatBar
+        value={hp}
+        height={7}
+        gradient="linear-gradient(180deg, #fca5a5 0%, #ef4444 38%, #b91c1c 78%, #7f1d1d 100%)"
+        glow="#ef4444"
+        title={hpTitle}
+      />
+      {shield > 0 ? (
+        <StatBar
+          value={shield}
+          height={4}
+          gradient="linear-gradient(180deg, #bae6fd 0%, #38bdf8 45%, #0369a1 100%)"
+          glow="#38bdf8"
+          title="Escudo"
+        />
+      ) : null}
+      {mp > 0 ? (
+        <StatBar
+          value={mp}
+          height={4}
+          gradient="linear-gradient(180deg, #93c5fd 0%, #3b82f6 40%, #1d4ed8 82%, #1e3a8a 100%)"
+          glow="#3b82f6"
+          title="Mana"
+        />
+      ) : null}
       {turn > 0 ? (
-        <Bar value={turn} color="linear-gradient(90deg,#b45309,#fbbf24,#fde68a)" height={2} title="Auto-ataque" />
+        <StatBar
+          value={turn}
+          height={2.5}
+          gradient="linear-gradient(180deg, #fde68a 0%, #f59e0b 52%, #b45309 100%)"
+          title="Auto-ataque"
+        />
       ) : null}
       {effects.length > 0 || skillReady.length > 0 ? (
         <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 4, marginTop: 3 }}>
@@ -785,10 +989,11 @@ function GroundShadow({ width }: { readonly width: number }) {
       aria-hidden
       style={{
         width,
-        height: Math.round(width * 0.16),
-        marginTop: -6,
+        height: Math.round(width * 0.18),
+        marginTop: -8,
         borderRadius: '50%',
-        background: 'radial-gradient(ellipse, rgba(0,0,0,.5) 0%, transparent 68%)',
+        background: 'radial-gradient(ellipse, rgba(0,0,0,.55) 0%, transparent 68%)',
+        filter: 'blur(1px)',
       }}
     />
   );
@@ -900,15 +1105,22 @@ function turnPercent(cooldownRemaining: number, attackSpeed: number): number {
   return percent(1 / period - cooldownRemaining, 1 / period);
 }
 
-function Bar({
+/** Barra de stats com MOLDE METÁLICO — o visual MMO clássico dos nameplates.
+ *
+ * Estrutura em três camadas:
+ *  1. moldura: gradiente aço escuro + borda luminosa + bisel superior;
+ *  2. trilho: cavidade escura com inset shadow;
+ *  3. preenchimento: gradiente vertical do stat + gloss de topo (luz da moldura).
+ */
+function StatBar({
   value,
-  color,
+  gradient,
   height = 5,
   glow,
   title,
 }: {
   readonly value: number;
-  readonly color: string;
+  readonly gradient: string;
   readonly height?: number;
   readonly glow?: string | undefined;
   readonly title?: string | undefined;
@@ -917,24 +1129,45 @@ function Bar({
     <div
       title={title}
       style={{
-        height,
-        borderRadius: 99,
-        background: 'rgba(2,6,23,.55)',
-        overflow: 'hidden',
-        marginTop: 2,
-        boxShadow: 'inset 0 1px 2px rgba(0,0,0,.5)',
+        padding: 2,
+        borderRadius: height >= 6 ? 6 : 99,
+        background: 'linear-gradient(180deg, #2b374b 0%, #101827 55%, #060a13 100%)',
+        border: '1px solid rgba(148,163,184,.38)',
+        boxShadow: 'inset 0 1px 0 rgba(255,255,255,.16), 0 1px 3px rgba(0,0,0,.65)',
+        marginTop: 3,
       }}
     >
       <div
         style={{
-          height: '100%',
-          width: `${Math.max(0, Math.min(100, value))}%`,
+          position: 'relative',
+          height,
           borderRadius: 99,
-          background: color,
-          boxShadow: glow ? `0 0 7px ${glow}` : undefined,
-          transition: 'width 150ms linear',
+          background: 'rgba(2,6,23,.92)',
+          overflow: 'hidden',
+          boxShadow: 'inset 0 1px 3px rgba(0,0,0,.8)',
         }}
-      />
+      >
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            width: `${Math.max(0, Math.min(100, value))}%`,
+            background: gradient,
+            boxShadow: glow ? `0 0 8px ${glow}, inset 0 -1px 2px rgba(0,0,0,.35)` : 'inset 0 -1px 2px rgba(0,0,0,.35)',
+            transition: 'width 150ms linear',
+          }}
+        >
+          {/* Gloss de topo — a mesma luz da moldura reflectida no fill */}
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: 'linear-gradient(180deg, rgba(255,255,255,.34) 0%, transparent 46%)',
+              borderRadius: 99,
+            }}
+          />
+        </div>
+      </div>
     </div>
   );
 }

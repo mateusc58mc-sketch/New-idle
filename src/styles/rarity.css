@@ -13,7 +13,7 @@
   /* Feedback de combate */
   --dmg-normal: 255 255 255;
   --dmg-crit: 251 191 36;
-  --dmg-heal: 74 222 128;
+  --dmg-heal: 52 211 153; /* esmeralda-400 */
   --dmg-miss: 148 163 184;
 
   /* Elementos (afinidade Fogo 150% em Terra, 50% em Água, etc.) */
