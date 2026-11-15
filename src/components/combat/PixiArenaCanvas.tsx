@@ -64,6 +64,17 @@ const DOLL_SCALE = DOLL_WIDTH / 256;
 /** Canvas do Paperdoll: pés em y=202.5 (rect do corpo {32,24,192}). */
 const DOLL_FEET_Y = 202.5;
 
+/**
+ * Escala de profundidade por lane — a lane de trás assenta no platô elevado
+ * do cenário (mais longe da câmara), logo os avatares lá são ligeiramente
+ * menores; a frente fica a escala integral no ringue de combate.
+ */
+const LANE_DEPTH_SCALE: Readonly<Record<'front' | 'mid' | 'back', number>> = {
+  front: 1,
+  mid: 0.93,
+  back: 0.86,
+};
+
 /** Tamanho do canvas offscreen do cenário (esticado ao palco). */
 const BACKDROP_W = 1280;
 const BACKDROP_H = 720;
@@ -143,6 +154,10 @@ interface UnitView {
   readonly plate: PlateView;
   readonly dir: 1 | -1;
   readonly lungeDistance: number;
+  /** Sombra de contacto nos pés — segue o lunge e respira com o bob. */
+  readonly shadow: Graphics;
+  /** Escala de profundidade da lane (frente 1, lanes recuadas menores). */
+  readonly depthScale: number;
   readonly unitTop: number;
   readonly floatBaseY: number;
   bobPhase: number;
@@ -965,8 +980,15 @@ export function PixiArenaCanvas({
 
         for (const layer of layers) {
           const rect = artRectFor(layer.key, layer.slot);
+          // Âncora oficial do design system — offset de calibração, escala e
+          // espelho aplicados SOBRE o rect. É a MESMA geometria que
+          // `layerStyle` usa no DOM, para que a transição Raça Pura → traje
+          // de Classe (e qualquer `anchorOverride` de item) calibre igual
+          // na arena Pixi e no inventário.
+          const anchorScale = Math.max(0.05, layer.anchor.scale);
           const holder = new P.Container();
-          holder.position.set(rect.x, rect.y);
+          holder.position.set(rect.x + layer.anchor.x, rect.y + layer.anchor.y);
+          if (layer.anchor.flipX) holder.scale.x = -1;
           holder.alpha = layer.opacity;
 
           // Fallback vetorial — resolvido uma vez, partilhado pela lâmina e pelo glow.
@@ -985,8 +1007,8 @@ export function PixiArenaCanvas({
           const applyTexture = (texture: Texture | null): void => {
             if (texture === null || sprite.destroyed) return;
             sprite.texture = texture;
-            sprite.width = rect.size;
-            sprite.height = rect.size;
+            sprite.width = rect.size * anchorScale;
+            sprite.height = rect.size * anchorScale;
           };
           if (layer.rasterSrc) {
             void loadRasterTexture(layer.rasterSrc).then(applyTexture);
@@ -999,7 +1021,8 @@ export function PixiArenaCanvas({
           // Glow de raridade da arma — cópia borrada e tingida atrás da lâmina.
           if (layer.key === 'weapon' && layer.slot === 'weapon' && layer.rarity) {
             const glowHolder = new P.Container();
-            glowHolder.position.set(rect.x, rect.y);
+            glowHolder.position.set(rect.x + layer.anchor.x, rect.y + layer.anchor.y);
+            if (layer.anchor.flipX) glowHolder.scale.x = -1;
             const glowSprite = new P.Sprite(P.Texture.EMPTY);
             glowSprite.filters = [new P.BlurFilter({ strength: 8 })];
             glowSprite.tint = toPixiColor(RARITY_COLOR[layer.rarity]);
@@ -1008,8 +1031,8 @@ export function PixiArenaCanvas({
             const applyGlow = (texture: Texture | null): void => {
               if (texture === null || glowSprite.destroyed) return;
               glowSprite.texture = texture;
-              glowSprite.width = rect.size;
-              glowSprite.height = rect.size;
+              glowSprite.width = rect.size * anchorScale;
+              glowSprite.height = rect.size * anchorScale;
             };
             if (layer.rasterSrc) {
               void loadRasterTexture(layer.rasterSrc).then(applyGlow);
@@ -1046,15 +1069,23 @@ export function PixiArenaCanvas({
           resolution: 2,
         });
         glyph.anchor.set(0.5);
-        glyph.position.set(0, -glyphSize * 0.55);
+        // Base do glifo afunda ~6% na linha do chão — o em-box do emoji tem
+        // folga transparente em baixo, e este overlap é o que faz o monstro
+        // parecer de pé no terreno em vez de pairar sobre ele.
+        glyph.position.set(0, -glyphSize * 0.44);
         avatar.addChild(glyph);
         return { container: avatar, glyphSize };
       }
 
+      /**
+       * Sombra de contacto nos pés — elipse em duas camadas (penumbra externa
+       * + núcleo escuro) centrada NA linha do chão do slot. É o que dá peso
+       * ao avatar: o corpo pode bobbar/lungear, a sombra fica pregada ao solo.
+       */
       function makeShadow(rx: number): Graphics {
         const shadow = new P.Graphics();
-        shadow.ellipse(0, 0, rx, rx * 0.18).fill({ color: 0x000000, alpha: 0.55 });
-        shadow.position.set(0, -6);
+        shadow.ellipse(0, 1.5, rx, rx * 0.2).fill({ color: 0x020617, alpha: 0.3 });
+        shadow.ellipse(0, 1.5, rx * 0.66, rx * 0.13).fill({ color: 0x020617, alpha: 0.4 });
         return shadow;
       }
 
@@ -1073,6 +1104,7 @@ export function PixiArenaCanvas({
         const existing = units.get(hero.id);
         if (existing) return existing;
 
+        const laneScale = LANE_DEPTH_SCALE[hero.position];
         const root = new P.Container();
         const bodyWrap = new P.Container();
         const avatar = new P.Container();
@@ -1082,7 +1114,8 @@ export function PixiArenaCanvas({
         bodyWrap.addChild(avatar);
 
         const plate = buildNameplate(150, false);
-        root.addChild(makeShadow(48), bodyWrap, plate.root);
+        const shadow = makeShadow(48 * laneScale);
+        root.addChild(shadow, bodyWrap, plate.root);
         world.addChild(root);
 
         const view: UnitView = {
@@ -1096,8 +1129,10 @@ export function PixiArenaCanvas({
           plate,
           dir: 1,
           lungeDistance: 30,
-          unitTop: (DOLL_FEET_Y - 24) * DOLL_SCALE,
-          floatBaseY: 105,
+          shadow,
+          depthScale: laneScale,
+          unitTop: (DOLL_FEET_Y - 24) * DOLL_SCALE * laneScale,
+          floatBaseY: 105 * laneScale,
           bobPhase: -(hero.position === 'front' ? 0 : hero.position === 'mid' ? 1.3 : 2.1),
           dollKey: '',
           deathAt: null,
@@ -1114,6 +1149,7 @@ export function PixiArenaCanvas({
 
         const isBoss = enemy.tier === 'boss';
         const glyphSize = isBoss ? 150 : enemy.tier === 'elite' ? 108 : 86;
+        const laneScale = LANE_DEPTH_SCALE[enemy.position];
         const root = new P.Container();
         const bodyWrap = new P.Container();
         const avatar = new P.Container();
@@ -1123,7 +1159,8 @@ export function PixiArenaCanvas({
         bodyWrap.addChild(avatar);
 
         const plate = buildNameplate(136, true);
-        root.addChild(makeShadow(isBoss ? 65 : 40), bodyWrap, plate.root);
+        const shadow = makeShadow((isBoss ? 65 : 40) * laneScale);
+        root.addChild(shadow, bodyWrap, plate.root);
         world.addChild(root);
 
         const view: UnitView = {
@@ -1137,8 +1174,10 @@ export function PixiArenaCanvas({
           plate,
           dir: -1,
           lungeDistance: 26,
-          unitTop: glyphSize * 0.95,
-          floatBaseY: glyphSize * 0.8,
+          shadow,
+          depthScale: laneScale,
+          unitTop: glyphSize * 0.95 * laneScale,
+          floatBaseY: glyphSize * 0.8 * laneScale,
           bobPhase: -((enemy.position === 'front' ? 59 : enemy.position === 'mid' ? 72 : 85) % 2.2),
           dollKey: '',
           deathAt: null,
@@ -1156,15 +1195,19 @@ export function PixiArenaCanvas({
         const stamp = lungesRef.current[view.id];
         if (!stamp || now - stamp > 500) {
           view.bodyWrap.x = 0;
+          view.shadow.x = 0;
           return;
         }
         const t = (now - stamp) / 320;
         if (t < 0 || t >= 1) {
           view.bodyWrap.x = 0;
+          view.shadow.x = 0;
           return;
         }
         const k = t < 0.45 ? Math.sin((t / 0.45) * Math.PI * 0.5) : 1 - (t - 0.45) / 0.55;
         view.bodyWrap.x = view.dir * view.lungeDistance * k;
+        // A sombra acompanha o deslize — o corpo nunca "sai" da própria sombra.
+        view.shadow.x = view.bodyWrap.x;
       }
 
       function tweenFlash(view: UnitView, now: number): void {
@@ -1221,9 +1264,19 @@ export function PixiArenaCanvas({
         view.root.position.set((slot.x / 100) * app.screen.width, (slot.y / 100) * app.screen.height);
         view.root.zIndex = Math.round(slot.y);
 
+        // Escala de profundidade da lane — a lane de trás, no platô, fica
+        // visivelmente menor (mais longe da câmara).
+        view.bodyWrap.scale.set(view.depthScale);
+
         const bobPeriod = 3.4;
-        const bobAmp = alive && !reducedMotion ? 4.5 : 0;
-        view.bodyWrap.y = -Math.abs(Math.sin(((now / 1000 + view.bobPhase) * 2 * Math.PI) / bobPeriod)) * bobAmp;
+        const bobAmp = alive && !reducedMotion ? 3 : 0;
+        const bobY = -Math.abs(Math.sin(((now / 1000 + view.bobPhase) * 2 * Math.PI) / bobPeriod)) * bobAmp;
+        view.bodyWrap.y = bobY;
+        // A sombra "respira" com o bob — corpo no alto, sombra mais suave e
+        // aberta, como uma personagem a fazer um pequeno salto de idle.
+        const bobT = bobAmp > 0 ? -bobY / bobAmp : 0;
+        view.shadow.alpha = 1 - bobT * 0.35;
+        view.shadow.scale.set(1 + bobT * 0.1);
 
         tweenLunge(view, now);
         tweenFlash(view, now);
@@ -1266,8 +1319,15 @@ export function PixiArenaCanvas({
         view.root.position.set((slot.x / 100) * app.screen.width, (slot.y / 100) * app.screen.height);
         view.root.zIndex = Math.round(slot.y);
 
-        const bobAmp = alive && !reducedMotion ? 4 : 0;
-        view.bodyWrap.y = -Math.abs(Math.sin(((now / 1000 + view.bobPhase) * 2 * Math.PI) / 2.8)) * bobAmp;
+        // Escala de profundidade da lane, igual aos heróis.
+        view.bodyWrap.scale.set(view.depthScale);
+
+        const bobAmp = alive && !reducedMotion ? 3 : 0;
+        const bobY = -Math.abs(Math.sin(((now / 1000 + view.bobPhase) * 2 * Math.PI) / 2.8)) * bobAmp;
+        view.bodyWrap.y = bobY;
+        const bobT = bobAmp > 0 ? -bobY / bobAmp : 0;
+        view.shadow.alpha = 1 - bobT * 0.35;
+        view.shadow.scale.set(1 + bobT * 0.1);
 
         tweenLunge(view, now);
         tweenFlash(view, now);
