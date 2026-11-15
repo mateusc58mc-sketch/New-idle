@@ -321,150 +321,348 @@ export function PixiArenaCanvas({
       const paintBackdrop = (biomeId: string): void => {
         if (!backdropCtx) return;
         const p = BIOME_BY_ID.get(biomeId)?.palette ?? FALLBACK_PALETTE;
-        const rgba = (hex: string, a: number) => {
-          const { r, g, b } = parseRgbColor(hex);
-          return `rgba(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)}, ${a})`;
+        const W = BACKDROP_W;
+        const H = BACKDROP_H;
+
+        /* Cores derivadas — atmosfera harmônica construída a partir da paleta
+         * oficial do bioma (nada de cinza genérico: tudo é mix/shade do trio
+         * sky/ground/accent, então cada bioma mantém identidade própria). */
+        const comp = (c: string): [number, number, number] => {
+          const { r, g, b } = parseRgbColor(c);
+          return [Math.round(r), Math.round(g), Math.round(b)];
         };
+        const mixc = (a: [number, number, number], b: [number, number, number], t: number): [number, number, number] => [
+          Math.round(a[0] + (b[0] - a[0]) * t),
+          Math.round(a[1] + (b[1] - a[1]) * t),
+          Math.round(a[2] + (b[2] - a[2]) * t),
+        ];
+        const css = (c: [number, number, number], alpha = 1): string => `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
+
+        const skyC = comp(p.sky);
+        const groundC = comp(p.ground);
+        const accentC = comp(p.accent);
+        const nightC: [number, number, number] = [2, 6, 23];
+        const whiteC: [number, number, number] = [248, 250, 252];
+
+        const horizonY = H * 0.52; // linha do horizonte
+        const terraceTop = H * 0.355; // platô recuado onde a lane de trás se apoia
+        const terraceFront = H * 0.50; // frente do platô (degrau do penhasco)
         const ctx = backdropCtx;
-        ctx.clearRect(0, 0, BACKDROP_W, BACKDROP_H);
+        ctx.clearRect(0, 0, W, H);
 
-        // Céu base — gradiente do bioma morrendo em noite.
-        const sky = ctx.createLinearGradient(0, 0, 0, BACKDROP_H);
-        sky.addColorStop(0, p.sky);
-        sky.addColorStop(1, '#020617');
+        /* ── 1. CÉU ATMOSFÉRICO ──
+         * Zênite escuro → azul do bioma → glow quente do accent no horizonte. */
+        const sky = ctx.createLinearGradient(0, 0, 0, horizonY);
+        sky.addColorStop(0, css(mixc(skyC, nightC, 0.45)));
+        sky.addColorStop(0.45, css(skyC));
+        sky.addColorStop(0.82, css(mixc(skyC, accentC, 0.22)));
+        sky.addColorStop(1, css(mixc(skyC, accentC, 0.38)));
         ctx.fillStyle = sky;
-        ctx.fillRect(0, 0, BACKDROP_W, BACKDROP_H);
+        ctx.fillRect(0, 0, W, horizonY + 2);
 
-        // Banda de neblina atmosférica na altura do horizonte.
-        const nebula = ctx.createLinearGradient(0, BACKDROP_H * 0.46, 0, BACKDROP_H * 0.68);
-        nebula.addColorStop(0, 'rgba(0,0,0,0)');
-        nebula.addColorStop(0.55, rgba(p.accent, 0.07));
-        nebula.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = nebula;
-        ctx.fillRect(0, BACKDROP_H * 0.46, BACKDROP_W, BACKDROP_H * 0.22);
+        // Estrelas — firmamento denso no zênite, apagando perto do horizonte.
+        for (let i = 0; i < 90; i++) {
+          const x = (((i * 97 + 13) % 100) / 100) * W;
+          const y = (((i * 61 + 7) % 55) / 100) * horizonY * 0.72;
+          const size = 0.6 + ((i * 7) % 10) / 8;
+          const fade = 1 - (y / (horizonY * 0.72)) * 0.6;
+          const isAccent = i % 9 === 0;
+          ctx.fillStyle = css(isAccent ? mixc(accentC, whiteC, 0.4) : whiteC, (0.16 + ((i * 13) % 40) / 100) * fade);
+          ctx.beginPath();
+          ctx.arc(x, y, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
 
-        // Lua / fonte de luz do bioma.
-        const moon = ctx.createRadialGradient(BACKDROP_W * 0.72, BACKDROP_H * 0.08, 0, BACKDROP_W * 0.72, BACKDROP_H * 0.08, 190);
-        moon.addColorStop(0, rgba(p.accent, 0.22));
-        moon.addColorStop(0.7, 'rgba(0,0,0,0)');
-        moon.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = moon;
-        ctx.fillRect(BACKDROP_W * 0.72 - 190, BACKDROP_H * 0.08 - 190, 380, 380);
+        // Lua / fonte de luz do bioma — halo duplo + núcleo com crateras.
+        const moonX = W * 0.74;
+        const moonY = H * 0.13;
+        const halo = ctx.createRadialGradient(moonX, moonY, 0, moonX, moonY, 170);
+        halo.addColorStop(0, css(accentC, 0.18));
+        halo.addColorStop(0.55, css(accentC, 0.07));
+        halo.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = halo;
+        ctx.fillRect(moonX - 170, moonY - 170, 340, 340);
+        const coreC = mixc(accentC, whiteC, 0.72);
+        ctx.fillStyle = css(coreC, 0.95);
+        ctx.beginPath();
+        ctx.arc(moonX, moonY, 24, 0, Math.PI * 2);
+        ctx.fill();
+        for (let i = 0; i < 5; i++) {
+          const angle = (i * 2.39) % (Math.PI * 2);
+          const dist = 5 + ((i * 11) % 14);
+          ctx.fillStyle = css(mixc(coreC, nightC, 0.35), 0.3);
+          ctx.beginPath();
+          ctx.arc(moonX + Math.cos(angle) * dist, moonY + Math.sin(angle) * dist, 2 + (i % 3), 0, Math.PI * 2);
+          ctx.fill();
+        }
 
-        // Cordilheiras — montes radiais suaves, três profundidades.
-        const mound = (cx: number, bottomY: number, rx: number, ry: number, color: string) => {
-          const gradient = ctx.createRadialGradient(cx, bottomY, 0, cx, bottomY, rx);
-          gradient.addColorStop(0, color);
-          gradient.addColorStop(0.7, 'rgba(0,0,0,0)');
-          gradient.addColorStop(1, 'rgba(0,0,0,0)');
-          ctx.fillStyle = gradient;
+        // Bancos de nuvens suaves, arrastando na direção do horizonte.
+        for (let i = 0; i < 5; i++) {
+          const cx = (((i * 311 + 40) % 100) / 100) * W;
+          const cy = H * (0.16 + ((i * 17) % 26) / 100);
+          const rx = 90 + ((i * 53) % 130);
+          const ry = 10 + ((i * 7) % 9);
+          const cloud = ctx.createRadialGradient(cx, cy, 0, cx, cy, rx);
+          cloud.addColorStop(0, css(mixc(skyC, whiteC, 0.55), 0.09));
+          cloud.addColorStop(0.7, 'rgba(0,0,0,0)');
+          cloud.addColorStop(1, 'rgba(0,0,0,0)');
+          ctx.fillStyle = cloud;
           ctx.save();
-          ctx.translate(cx, bottomY);
+          ctx.translate(cx, cy);
           ctx.scale(1, ry / rx);
           ctx.beginPath();
           ctx.arc(0, 0, rx, 0, Math.PI * 2);
           ctx.fill();
           ctx.restore();
-        };
-        // Camada 1 — distante, cor do céu.
-        mound(BACKDROP_W * 0.14, BACKDROP_H * 0.74, BACKDROP_W * 0.58, BACKDROP_H * 0.26, rgba(p.sky, 0.75));
-        mound(BACKDROP_W * 0.58, BACKDROP_H * 0.74, BACKDROP_W * 0.5, BACKDROP_H * 0.26, rgba(p.sky, 0.55));
-        mound(BACKDROP_W * 0.94, BACKDROP_H * 0.74, BACKDROP_W * 0.42, BACKDROP_H * 0.26, rgba(p.sky, 0.7));
-        // Camada 2 — colinas médias, cor do chão.
-        mound(BACKDROP_W * 0.3, BACKDROP_H * 0.81, BACKDROP_W * 0.46, BACKDROP_H * 0.17, rgba(p.ground, 0.85));
-        mound(BACKDROP_W * 0.78, BACKDROP_H * 0.81, BACKDROP_W * 0.4, BACKDROP_H * 0.17, rgba(p.ground, 0.7));
-        // Camada 3 — silhuetas próximas, quase pretas.
-        mound(BACKDROP_W * 0.06, BACKDROP_H * 0.855, BACKDROP_W * 0.18, BACKDROP_H * 0.1, 'rgba(2,6,23,0.9)');
-        mound(BACKDROP_W * 0.36, BACKDROP_H * 0.855, BACKDROP_W * 0.14, BACKDROP_H * 0.1, 'rgba(2,6,23,0.85)');
-        mound(BACKDROP_W * 0.68, BACKDROP_H * 0.855, BACKDROP_W * 0.16, BACKDROP_H * 0.1, 'rgba(2,6,23,0.88)');
-        mound(BACKDROP_W * 0.96, BACKDROP_H * 0.855, BACKDROP_W * 0.13, BACKDROP_H * 0.1, 'rgba(2,6,23,0.9)');
-
-        // Chão — gradiente com luz do bioma a morrer no horizonte.
-        const floor = ctx.createLinearGradient(0, BACKDROP_H * 0.7, 0, BACKDROP_H);
-        floor.addColorStop(0, 'rgba(0,0,0,0)');
-        floor.addColorStop(0.22, rgba(p.ground, 0.5));
-        floor.addColorStop(1, 'rgba(2,6,23,0.92)');
-        ctx.fillStyle = floor;
-        ctx.fillRect(0, BACKDROP_H * 0.7, BACKDROP_W, BACKDROP_H * 0.3);
-
-        // Banding do piso — linhas horizontais densas ao fundo (perspectiva).
-        for (let y = Math.ceil(BACKDROP_H * 0.7); y < BACKDROP_H; y += 5) {
-          const t = (y - BACKDROP_H * 0.7) / (BACKDROP_H * 0.3);
-          const alpha = 0.05 * Math.max(0, Math.min(1, (t - 0.34) / 0.66));
-          if (alpha <= 0.001) continue;
-          ctx.fillStyle = `rgba(255,255,255,${alpha})`;
-          ctx.fillRect(0, y, BACKDROP_W, 1);
         }
 
-        // Poça de luz sob o centro — onde o combate acontece.
-        const pool = ctx.createRadialGradient(BACKDROP_W * 0.5, BACKDROP_H * 0.93, 0, BACKDROP_W * 0.5, BACKDROP_H * 0.93, BACKDROP_W * 0.23);
-        pool.addColorStop(0, rgba(p.accent, 0.12));
-        pool.addColorStop(0.68, 'rgba(0,0,0,0)');
+        /* ── 2. CORDILHEIRAS DE PROFUNDIDADE ──
+         * Silhuetas serrilhadas com perspectiva atmosférica: quanto mais
+         * distante, mais dissolvidas na cor do céu; rim light no cume vindo
+         * da lua do bioma. */
+        const ridge = (
+          baseY: number,
+          peakMin: number,
+          peakMax: number,
+          peaks: number,
+          seed: number,
+          topColor: [number, number, number],
+          bottomColor: [number, number, number],
+          alpha: number,
+          rimAlpha: number,
+        ): void => {
+          const points: Array<[number, number]> = [[0, baseY]];
+          const seg = W / peaks;
+          for (let i = 0; i < peaks; i++) {
+            const valleyX = seg * i + ((i * seed) % 14) - 7;
+            const valleyY = baseY - ((i * seed * 3) % Math.max(1, Math.round(peakMin * 0.35)));
+            const peakX = seg * (i + 0.5) + ((i * seed) % 22) - 11;
+            const peakY = baseY - (peakMin + ((i * seed * 7) % Math.max(1, peakMax - peakMin)));
+            points.push([valleyX, valleyY], [peakX, peakY]);
+          }
+          points.push([W, baseY]);
+          const firstPoint = points[0];
+          if (!firstPoint) return;
+          ctx.beginPath();
+          ctx.moveTo(firstPoint[0], firstPoint[1]);
+          for (const [x, y] of points.slice(1)) ctx.lineTo(x, y);
+          ctx.lineTo(W, horizonY + 40);
+          ctx.lineTo(0, horizonY + 40);
+          ctx.closePath();
+          const gradient = ctx.createLinearGradient(0, baseY - peakMax, 0, horizonY + 30);
+          gradient.addColorStop(0, css(topColor, alpha));
+          gradient.addColorStop(1, css(bottomColor, alpha));
+          ctx.fillStyle = gradient;
+          ctx.fill();
+          // rim light no cume
+          ctx.beginPath();
+          ctx.moveTo(firstPoint[0], firstPoint[1]);
+          for (const [x, y] of points.slice(1)) ctx.lineTo(x, y);
+          ctx.strokeStyle = css(mixc(topColor, whiteC, 0.5), rimAlpha);
+          ctx.lineWidth = 1.4;
+          ctx.stroke();
+        };
+
+        // Camada distante — quase dissolvida na cor do céu.
+        ridge(horizonY - 8, 100, 175, 5, 17,
+          mixc(skyC, groundC, 0.3), mixc(skyC, groundC, 0.55), 0.78, 0.28);
+        // Camada média — tons intermédios, picos mais fechados.
+        ridge(horizonY - 4, 115, 190, 4, 29,
+          mixc(skyC, groundC, 0.58), mixc(groundC, nightC, 0.15), 0.88, 0.2);
+
+        /* ── 3. PLATÔ RECUADO (lane de trás) + FACE DO DEGRAU ──
+         * Terreno escalonado de torre: a lane "back" fica sobre um platô
+         * elevado, em tons dissolvidos pela distância, com degrau em sombra
+         * caindo até o horizonte — as unidades ficam visivelmente apoiadas. */
+        ctx.beginPath();
+        ctx.moveTo(0, terraceTop + 8);
+        for (let i = 0; i <= 8; i++) {
+          ctx.lineTo((W / 8) * i, terraceTop + (((i * 23) % 12) - 6));
+        }
+        ctx.lineTo(W, terraceFront);
+        ctx.lineTo(0, terraceFront);
+        ctx.closePath();
+        const terrace = ctx.createLinearGradient(0, terraceTop, 0, terraceFront);
+        terrace.addColorStop(0, css(mixc(groundC, skyC, 0.45), 0.85));
+        terrace.addColorStop(1, css(mixc(groundC, skyC, 0.22), 0.95));
+        ctx.fillStyle = terrace;
+        ctx.fill();
+        // rim da frente do platô — luz batendo na aresta do degrau
+        ctx.fillStyle = css(mixc(accentC, whiteC, 0.35), 0.4);
+        ctx.fillRect(0, terraceFront - 2, W, 2);
+        // pedras espalhadas no platô
+        for (let i = 0; i < 6; i++) {
+          const cx = (((i * 151 + 23) % 96) / 100) * W;
+          const cy = terraceTop + 18 + ((i * 37) % Math.max(1, Math.round(terraceFront - terraceTop - 30)));
+          ctx.fillStyle = css(mixc(groundC, nightC, 0.35), 0.5);
+          ctx.beginPath();
+          ctx.ellipse(cx, cy, 7 + ((i * 13) % 8), 3 + ((i * 7) % 3), 0, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        // face vertical do degrau — penhasco em sombra
+        const cliff = ctx.createLinearGradient(0, terraceFront, 0, horizonY);
+        cliff.addColorStop(0, css(mixc(groundC, nightC, 0.55), 0.95));
+        cliff.addColorStop(1, css(mixc(groundC, nightC, 0.75), 0.98));
+        ctx.fillStyle = cliff;
+        ctx.fillRect(0, terraceFront, W, horizonY - terraceFront);
+
+        /* ── 4. LINHA DO HORIZONTE MARCADA ── */
+        const glow = ctx.createLinearGradient(0, horizonY - 26, 0, horizonY + 6);
+        glow.addColorStop(0, 'rgba(0,0,0,0)');
+        glow.addColorStop(1, css(accentC, 0.16));
+        ctx.fillStyle = glow;
+        ctx.fillRect(0, horizonY - 26, W, 32);
+        ctx.fillStyle = css(accentC, 0.35);
+        ctx.fillRect(0, horizonY - 4, W, 1.5);
+        ctx.fillStyle = css(mixc(accentC, whiteC, 0.5), 0.8);
+        ctx.fillRect(0, horizonY - 1, W, 2);
+
+        /* ── 5. PISO DE TERRENO TEXTURIZADO ──
+         * Do horizonte (luz do accent a morrer) até o primeiro plano (noite).
+         * Textura em três escalas: grama em perspectiva, grão do terreno e
+         * banding de anéis — as unidades "assentam" num chão real. */
+        const floorTop = horizonY;
+        const floor = ctx.createLinearGradient(0, floorTop, 0, H);
+        floor.addColorStop(0, css(mixc(groundC, accentC, 0.32)));
+        floor.addColorStop(0.28, css(groundC));
+        floor.addColorStop(1, css(mixc(groundC, nightC, 0.72)));
+        ctx.fillStyle = floor;
+        ctx.fillRect(0, floorTop, W, H - floorTop);
+
+        // Banding de perspectiva — anéis do terreno espaçando ao aproximar.
+        let ringY = floorTop + 6;
+        let spacing = 3;
+        while (ringY < H) {
+          const depth = (ringY - floorTop) / (H - floorTop);
+          ctx.fillStyle = css(mixc(groundC, nightC, 0.4), 0.1 * (1 - depth * 0.6));
+          ctx.fillRect(0, ringY, W, 1.2);
+          ringY += spacing;
+          spacing = 3 + depth * 9;
+        }
+
+        // Grão do terreno — speckles claros/escuros determinísticos.
+        for (let i = 0; i < 380; i++) {
+          const x = (((i * 137 + 29) % 100) / 100) * W;
+          const y = floorTop + (((i * 89 + 53) % 100) / 100) * (H - floorTop);
+          const light = i % 3 !== 0;
+          ctx.fillStyle = light
+            ? css(mixc(groundC, whiteC, 0.4), 0.05 + ((i * 7) % 6) / 100)
+            : css(mixc(groundC, nightC, 0.7), 0.07 + ((i * 5) % 7) / 100);
+          ctx.fillRect(x, y, 1 + (i % 3), 1);
+        }
+
+        // Grama em perspectiva — fios curvos crescendo ao aproximar.
+        for (let i = 0; i < 130; i++) {
+          const x = (((i * 173 + 31) % 100) / 100) * W;
+          const depth = ((i * 41 + 11) % 100) / 100;
+          const y = floorTop + 8 + depth * (H - floorTop - 12);
+          const scale = 0.55 + depth * 0.75;
+          const len = (5 + ((i * 13) % 10)) * scale;
+          const tilt = (((i * 29) % 36) - 18) * (Math.PI / 180);
+          const alpha = 0.1 + ((i * 7) % 18) / 100;
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(tilt);
+          ctx.strokeStyle = css(mixc(accentC, groundC, 0.35), alpha);
+          ctx.lineWidth = 1 + scale * 0.6;
+          ctx.beginPath();
+          ctx.moveTo(0, 0);
+          ctx.quadraticCurveTo(len * 0.2, -len * 0.6, 0, -len);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        // Silhuetas de vegetação na base do degrau — soldam piso ao penhasco.
+        for (let i = 0; i < 10; i++) {
+          const cx = (((i * 197 + 17) % 98) / 100) * W;
+          const baseY = floorTop + 4 + ((i * 31) % 14);
+          const h = 10 + ((i * 7) % 16);
+          ctx.fillStyle = css(mixc(groundC, nightC, 0.6), 0.9);
+          ctx.beginPath();
+          ctx.ellipse(cx, baseY, 9 + ((i * 11) % 10), h, 0, Math.PI, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Poça de luz — o ringue de combate onde as unidades se enfrentam.
+        const poolX = W * 0.5;
+        const poolY = H * 0.8;
+        const pool = ctx.createRadialGradient(poolX, poolY, 0, poolX, poolY, W * 0.24);
+        pool.addColorStop(0, css(accentC, 0.15));
+        pool.addColorStop(0.55, css(accentC, 0.06));
         pool.addColorStop(1, 'rgba(0,0,0,0)');
         ctx.fillStyle = pool;
         ctx.save();
-        ctx.translate(BACKDROP_W * 0.5, BACKDROP_H * 0.93);
-        ctx.scale(1, (BACKDROP_H * 0.07) / (BACKDROP_W * 0.23));
+        ctx.translate(poolX, poolY);
+        ctx.scale(1, (H * 0.1) / (W * 0.24));
         ctx.beginPath();
-        ctx.arc(0, 0, BACKDROP_W * 0.23, 0, Math.PI * 2);
+        ctx.arc(0, 0, W * 0.24, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
 
-        // Pedras no piso — posições determinísticas (i*const % range).
-        for (let i = 0; i < 9; i++) {
-          const left = (4 + ((i * 37 + 11) % 92)) / 100;
-          const bottom = (1 + ((i * 17) % 24)) / 100;
-          const width = 12 + ((i * 13) % 14);
-          const height = 5 + ((i * 7) % 5);
-          const opacity = 0.35 + (((i * 11) % 30) / 100);
-          const cx = left * BACKDROP_W;
-          const cy = BACKDROP_H - bottom * BACKDROP_H - height / 2;
+        // Pedras — sombreadas com brilho superior (luz da lua do bioma) e
+        // sombra projetada no chão.
+        for (let i = 0; i < 12; i++) {
+          const left = ((i * 37 + 11) % 94) / 100;
+          const depth = ((i * 17) % 100) / 100;
+          const width = (14 + ((i * 13) % 16)) * (0.6 + depth * 0.7);
+          const height = width * 0.42;
+          const cx = left * W;
+          const cy = floorTop + 14 + depth * (H - floorTop - 26);
+          const alpha = 0.4 + ((i * 11) % 30) / 100;
           const stone = ctx.createLinearGradient(0, cy - height / 2, 0, cy + height / 2);
-          stone.addColorStop(0, `rgba(148,163,184,${0.4 * opacity})`);
-          stone.addColorStop(0.7, `rgba(2,6,23,${0.9 * opacity})`);
+          stone.addColorStop(0, css(mixc(groundC, whiteC, 0.45), 0.5 * alpha));
+          stone.addColorStop(0.35, css(mixc(groundC, nightC, 0.35), 0.9 * alpha));
+          stone.addColorStop(1, css(nightC, 0.95 * alpha));
           ctx.fillStyle = stone;
           ctx.beginPath();
           ctx.ellipse(cx, cy, width / 2, height / 2, 0, 0, Math.PI * 2);
           ctx.fill();
+          ctx.fillStyle = css(nightC, 0.25 * alpha);
+          ctx.beginPath();
+          ctx.ellipse(cx + width * 0.16, cy + height * 0.55, width * 0.42, height * 0.22, 0, 0, Math.PI * 2);
+          ctx.fill();
         }
 
-        // Tufos de grama — levemente inclinados, cor do bioma escurecida.
-        for (let i = 0; i < 16; i++) {
-          const left = (2 + ((i * 23 + 5) % 96)) / 100;
-          const bottom = (0.5 + ((i * 13) % 26)) / 100;
-          const height = 5 + ((i * 5) % 6);
-          const tilt = (((i * 29) % 14) - 7) * (Math.PI / 180);
-          const opacity = 0.4 + (((i * 7) % 25) / 100);
-          const x = left * BACKDROP_W;
-          const y = BACKDROP_H - bottom * BACKDROP_H;
+        // Tufos de grama — clusters de 3 fios, cor do bioma.
+        for (let i = 0; i < 18; i++) {
+          const left = ((i * 23 + 5) % 96) / 100;
+          const depth = ((i * 13) % 100) / 100;
+          const x = left * W;
+          const y = floorTop + 10 + depth * (H - floorTop - 20);
+          const scale = 0.6 + depth * 0.8;
+          const tilt = (((i * 29) % 16) - 8) * (Math.PI / 180);
+          const alpha = 0.3 + ((i * 7) % 25) / 100;
           ctx.save();
           ctx.translate(x, y);
           ctx.rotate(tilt);
-          const tuft = ctx.createLinearGradient(0, -height, 0, 0);
-          tuft.addColorStop(0, rgba(p.accent, 0.55 * opacity));
-          tuft.addColorStop(1, rgba(p.ground, 0.9 * opacity));
-          ctx.fillStyle = tuft;
-          ctx.beginPath();
-          ctx.roundRect(-1.25, -height, 2.5, height, 2);
-          ctx.fill();
+          const tuft = ctx.createLinearGradient(0, 0, 0, -14 * scale);
+          tuft.addColorStop(0, css(mixc(accentC, groundC, 0.5), 0.9 * alpha));
+          tuft.addColorStop(1, css(mixc(accentC, whiteC, 0.25), alpha));
+          ctx.strokeStyle = tuft;
+          ctx.lineWidth = 1.3 * scale;
+          for (const blade of [-3, 0, 3]) {
+            ctx.beginPath();
+            ctx.moveTo(blade * scale, 0);
+            ctx.quadraticCurveTo(blade * 1.4 * scale, -7 * scale, blade * 0.8 * scale, -14 * scale);
+            ctx.stroke();
+          }
           ctx.restore();
         }
 
-        // Linha do horizonte.
-        const horizon = ctx.createLinearGradient(0, 0, BACKDROP_W, 0);
-        horizon.addColorStop(0, 'rgba(0,0,0,0)');
-        horizon.addColorStop(0.5, rgba(p.accent, 0.35));
-        horizon.addColorStop(1, 'rgba(0,0,0,0)');
-        ctx.fillStyle = horizon;
-        ctx.fillRect(0, BACKDROP_H * 0.7, BACKDROP_W, 2);
+        // Neblina rasteira na base do penhasco — assenta as montanhas no chão.
+        const mist = ctx.createLinearGradient(0, horizonY - 4, 0, horizonY + 30);
+        mist.addColorStop(0, css(mixc(accentC, whiteC, 0.5), 0.1));
+        mist.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = mist;
+        ctx.fillRect(0, horizonY - 4, W, 34);
 
-        // Vinheta.
-        const radius = Math.hypot(BACKDROP_W, BACKDROP_H) / 2;
-        const vignette = ctx.createRadialGradient(BACKDROP_W / 2, BACKDROP_H / 2, radius * 0.55, BACKDROP_W / 2, BACKDROP_H / 2, radius);
+        /* ── 6. VINHETA ── */
+        const radius = Math.hypot(W, H) / 2;
+        const vignette = ctx.createRadialGradient(W / 2, H / 2, radius * 0.55, W / 2, H / 2, radius);
         vignette.addColorStop(0, 'rgba(2,6,23,0)');
         vignette.addColorStop(1, 'rgba(2,6,23,0.85)');
         ctx.fillStyle = vignette;
-        ctx.fillRect(0, 0, BACKDROP_W, BACKDROP_H);
+        ctx.fillRect(0, 0, W, H);
 
         backdropTexture.source.update();
       };
