@@ -2,6 +2,8 @@
 
 Primeiro protótipo independente para testar combate automático antes de integrar o sistema à interface do jogo.
 
+> Atenção: o repositório já possui um motor de combate mais completo em `src/lib/game/combat.ts`. Esse motor é a base de produção a ser auditada e testada. Este simulador independente é apenas um protótipo histórico de balanceamento, não deve ser tratado como uma segunda fonte de verdade.
+
 ## Requisitos
 
 - Node.js 22 ou superior.
@@ -38,11 +40,8 @@ Atributos, HP, dano, defesa, ASPD, Haste, recargas e fórmulas são valores de t
 - Fórmula simplificada: `max(1, ataque - defesa * 0.5)`.
 - Sem crítico, esquiva, precisão, resistência elemental, buffs/debuffs complexos ou múltiplos inimigos simultâneos.
 - A fase 2 do chefe registra a transição, mas ainda não altera seu conjunto de habilidades.
-- Esta é uma bancada de balanceamento, não o servidor autoritativo do jogo.
+- Esta é uma bancada de balanceamento simplificada, não o motor principal nem o servidor autoritativo.
 
 ## Próximas melhorias
 
-1. Relatórios de DPS, dano recebido, cura efetiva e duração.
-2. Baterias de centenas de seeds e comparação de parties de 1–4 membros.
-3. Cenários dos três monstros comuns e do chefe do Vale de Brumafonte.
-4. Evolução das fórmulas após validar o modelo real de atributos.
+O próximo trabalho principal deve usar diretamente `src/lib/game/combat.ts`, construir fixtures e executar baterias de simulação determinísticas. Consulte `docs/TALUNE_HANDOFF.md` para as divergências identificadas e o plano.
