@@ -9,39 +9,40 @@ Primeiro protótipo independente para testar combate automático antes de integr
 
 ## Executar
 
-Na pasta deste arquivo:
+Na pasta `tools/combat-simulator/`:
 
 ```powershell
 node --experimental-strip-types .\combat-simulator.ts
-```
-
-Para simular o chefe:
-
-```powershell
 node --experimental-strip-types .\combat-simulator.ts --boss
+node --experimental-strip-types .\combat-simulator.test.ts
 ```
-
-O Node 22 pode mostrar um aviso de que o suporte a TypeScript por remoção de tipos ainda é experimental. Isso não impede a execução deste protótipo.
 
 ## O que já está implementado
 
 - Party configurável de 1 a 4 personagens.
 - Fila de prioridade de habilidades por personagem.
-- Habilidade indisponível é ignorada; o personagem usa a próxima habilidade disponível ou o ataque básico.
-- Ataques básicos usam ASPD.
-- Haste reduz recargas de habilidades e não altera ASPD.
-- Habilidades de cura priorizam o aliado com menor percentual de HP e são ignoradas quando ninguém precisa de cura.
-- Monstro ataca periodicamente e escolhe um membro vivo da party.
-- Chefe tem golpe especial anunciado, tempo de reaãão e segunda fase por percentual de HP.
-- Seed determinística para repetir os mesmos resultados.
-- Registro de eventos e resumo de vitória, derrota ou timeout.
+- Habilidade indisponível é ignorada; usa a próxima disponível ou ataque básico.
+- ASPD controla somente ataques básicos.
+- Haste reduz recargas de habilidades, sem alterar ASPD.
+- Cura prioriza aliado com menor percentual de HP.
+- Monstro ataca periodicamente e escolhe um membro vivo.
+- Chefe com golpe especial anunciado, janela de reação e transição de fase por percentual de HP.
+- Seed determinística, registro de eventos e métricas por personagem.
 
 ## Parâmetros provisórios
 
-Os atributos, HP, dano, defesa, ASPD, Haste, recargas e fórmulas no arquivo são apenas valores de teste. Não são balanceamento aprovado nem valores finais de Talune.
+Atributos, HP, dano, defesa, ASPD, Haste, recargas e fórmulas são valores de teste, não balanceamento final aprovado.
 
-## Limitações conhecidas desta primeira versão
+## Limitações conhecidas
 
-- Fórmula de dano simplificada: `max(1, ataque - defesa * 0.5)`.
-- Sem crítico, esquiva, precisão, resistência elemental, buffs, debuffs complexos, posicionamento ou múltiplos inimigos simultâneos.
-- A fase 2 do chefe está representada por um evento de transição; ainda não altera seu conjto de habilidades.
+- Fórmula simplificada: `max(1, ataque - defesa * 0.5)`.
+- Sem crítico, esquiva, precisão, resistência elemental, buffs/debuffs complexos ou múltiplos inimigos simultâneos.
+- A fase 2 do chefe registra a transição, mas ainda não altera seu conjunto de habilidades.
+- Esta é uma bancada de balanceamento, não o servidor autoritativo do jogo.
+
+## Próximas melhorias
+
+1. Relatórios de DPS, dano recebido, cura efetiva e duração.
+2. Baterias de centenas de seeds e comparação de parties de 1–4 membros.
+3. Cenários dos três monstros comuns e do chefe do Vale de Brumafonte.
+4. Evolução das fórmulas após validar o modelo real de atributos.
